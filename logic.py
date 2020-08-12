@@ -29,9 +29,8 @@ class Logic(object):
         'gclone_config_path' : os.path.join(path_data, package_name, 'gclone.conf'),
         'gclone_queue_list' : '',
         'gclone_fix_option' : '--log-level INFO --stats 1s',
-        'gclone_user_option' : '--drive-server-side-across-configs --tpslimit 3 --transfers 3 --create-empty-src-dirs',
+        'gclone_user_option' : '--drive-server-side-across-configs --tpslimit 3 --transfers 3 --create-empty-src-dirs --ignore-existing --size-only --disable ListR',
         'gclone_default_folderid' : '',
-
     }
 
     @staticmethod

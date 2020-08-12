@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+  {{ macros.m_button_group([['global_setting_save_btn', '설정 저장']])}}
+  {{ macros.m_row_start('5') }}
+  {{ macros.m_row_end() }}
+  <nav>
+    {{ macros.m_tab_head_start() }}
+      {{ macros.m_tab_head2('normal', '설정', true) }}
+    {{ macros.m_tab_head_end() }}
+  </nav>
+  <form id='setting' name='setting'>
+  <div class="tab-content" id="nav-tabContent">
+    <!-- 일반 -->
+    {{ macros.m_tab_content_start('normal', true) }}
+      {{ macros.setting_input_text_and_buttons('gclone_path', 'gclone 경로', [['gclone_version_btn', '버전확인']], value=arg['gclone_path']) }}
+      {{ macros.setting_input_text_and_buttons('gclone_config_path', 'config 경로',  [['gen_config_btn', '기본 config 생성'], ['view_config_btn', '내용보기']], value=arg['gclone_config_path']) }}
+      {{ macros.setting_input_text('gclone_fix_option', '고정 옵션', value=arg['gclone_fix_option'], disabled=True) }}
+      {{ macros.setting_input_textarea('gclone_user_option', '유저 옵션', value=arg['gclone_user_option'], row=5) }}
+      {{ macros.setting_input_text('gclone_default_folderid', '디폴트 폴더ID', value=arg['gclone_default_folderid'], desc=['타겟 경로를 {}으로 입력시 {디폴트 폴더ID} 로 치환됩니다.']) }}
+    {{ macros.m_tab_content_end() }}
+  </div><!--tab-content-->
+  </form>
+</div> <!--전체-->
+
+
+<script type="text/javascript">
+var package_name = "{{arg['package_name'] }}";
+var sub = "{{arg['sub'] }}";
+
+$(document).ready(function(){
+});
+
+$("body").on('click', '#view_config_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/view_config',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        m_modal(data.data, 'gclone config', false);
+      }
+    }
+  });
+});
+
+$("body").on('click', '#gen_config_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/gen_config',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        m_modal(data.data, 'gclone config', false);
+      } else {
+        $.notify('<strong>'+data.log+'</strong>', {type: 'warning'});
+      }
+    }
+  });
+});
+
+$("body").on('click', '#gclone_version_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/version',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+      var str = '';
+      for (var i = 0; i < data.length; i++) {
+        str += "<div>" + data[i] + "</div>";
+      }
+      document.getElementById("normal_modal_title").innerHTML = "gclone version";
+      document.getElementById("normal_modal_body").innerHTML = str;
+      $("#normal_modal").modal();
+    }
+  });
+});
+
+
+</script>    
+{% endblock %}

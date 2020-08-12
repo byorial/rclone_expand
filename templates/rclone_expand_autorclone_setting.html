@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+  {{ macros.m_row_start('0') }}
+  {{ macros.m_row_end() }}
+  <nav>
+    {{ macros.m_tab_head_start() }}
+      {{ macros.m_tab_head2('normal', '서비스 계정 생성', true) }}
+    {{ macros.m_tab_head_end() }}
+  </nav>
+  <form id='setting' name='setting'>
+  <div class="tab-content" id="nav-tabContent">
+    <!-- 일반 -->
+    {{ macros.m_tab_content_start('normal', true) }}
+      <!-- account 파일수, credentials.json 존재여부, 업로드-->
+      {{ macros.info_text_go('', 'QuickStart Python', value='https://developers.google.com/drive/api/v3/quickstart/python') }}
+      {{ macros.info_text('autorclone_credentials_status_str', 'QuickStart Python 인증파일', value=arg['autorclone_credentials_status_str'], desc=['Enable the Drive API 버튼 클릭 후 생성되는 파일을 /app/data/rclone_expand 폴더에 복사'] ) }}
+
+      {{ macros.info_text_go('api_use1', 'API 사용 설정1', value=arg['api_use1'], desc=['링크 클릭 후 미리 사용 설정']) }}
+      {{ macros.info_text_go('api_use2', 'API 사용 설정2', value=arg['api_use2'], desc=['링크 클릭 후 미리 사용 설정']) }}
+
+      {{ macros.info_text('autorclone_token_status_str', 'API Token', value=arg['autorclone_token_status_str'], desc=['API Token이 없는 경우 인증버튼 클릭'] ) }}
+
+      {{ macros.info_text('autorclone_sa_count', '서비스 계정 JSON 파일 수', value=arg['autorclone_sa_count'], desc=['/app/data/rclone_expand/account 폴더내 json 파일 수'] ) }}
+      {{ macros.setting_button([['gen_email_btn', '구글그룹 등록을 위한 이메일 목록'], ['split_json_btn', '프로젝트별로 JSON 분리'],['google_group_go_btn', '구글그룹'] ], left='' ) }}
+
+      {{ macros.m_hr() }}
+      {{ macros.setting_input_text_and_buttons('code', 'API 인증 코드', [['auth_step1_btn', '인증'], ['auth_step2_btn', '토큰생성']], value='', desc=['1.인증클릭  2.코드입력  3.토큰생성 클릭']) }}
+
+      {{ macros.m_hr() }}
+
+      {{ macros.setting_button([['sa_create_new_only_btn', '프로젝트 추가 + 서비스 계정 생성']], left='' ) }}
+
+    {{ macros.m_tab_content_end() }}
+  </div><!--tab-content-->
+  </form>
+</div> <!--전체-->
+
+
+<script type="text/javascript">
+var package_name = "{{arg['package_name'] }}";
+var sub = "{{arg['sub'] }}";
+
+$(document).ready(function(){
+});
+
+$("body").on('click', '#sa_create_new_only_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/sa_create_new_only',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+    }
+  });
+});
+
+$("body").on('click', '#auth_step1_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/auth_step1',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+      window.open(data, "_blank");
+    }
+  });
+});
+
+$("body").on('click', '#auth_step2_btn', function(e) {
+  e.preventDefault();
+  code = document.getElementById('code').value;
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/auth_step2',
+    type: "POST", 
+    cache: false,
+    data:{code:code},
+    dataType: "json",
+    success: function (data) {
+      if (data) {
+        $.notify('<strong>토큰을 생성하였습니다.</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>토큰 생성에 실패하였습니다.</strong>', {type: 'warning'});
+      }
+    } 
+  });
+});
+
+$("body").on('click', '#split_json_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/split_json',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+      $.notify('<strong>'+data+'개를 이동하였습니다.</strong>', {type: 'success'});
+    } 
+  });
+});
+
+
+$("body").on('click', '#gen_email_btn', function(e) {
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/' + sub + '/gen_email',
+    type: "POST", 
+    cache: false,
+    data:{},
+    dataType: "json",
+    success: function (data) {
+      
+      var str = '';
+      for (var i = 0; i < data.length; i++) {
+        str += "<div>" + data[i] + ",</div>";
+      }
+      m_modal(str, '이메일',  false);
+    } 
+  });
+});
+
+$("body").on('click', '#google_group_go_btn', function(e) {
+  e.preventDefault();
+  window.open('https://groups.google.com/u/7/my-groups', "_blank");
+});
+
+
+</script>    
+{% endblock %}

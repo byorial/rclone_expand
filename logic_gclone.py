@@ -234,7 +234,7 @@ service_account_file_path = {accounts_dir}/
                             line = line.decode('cp949')
                         except Exception as e: 
                             pass
-                    logger.debug('>>>> %s', line)
+                    #logger.debug('>>>> %s', line)
                     if line == '' or  line.startswith('Checking'):
                         continue
                     if line.endswith('INFO  :'):

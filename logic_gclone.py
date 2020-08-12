@@ -40,6 +40,7 @@ class LogicGclone(object):
                 ret = LogicGclone.start()
                 return jsonify(ret)
             elif sub == 'stop':
+                LogicGclone.current_data['user_stop'] = True
                 ret = LogicGclone.kill()
                 return jsonify(ret)
             elif sub == 'version':
@@ -141,6 +142,8 @@ service_account_file_path = {accounts_dir}/
                                     target = tmp[1].strip()
                                     target = target.replace('{}', '{%s}' % ModelSetting.get('gclone_default_folderid'))
                                     if target.find('{}') != -1:
+                                        continue
+                                    if target.find(':') == -1:
                                         continue
                                     return_code = LogicGclone.gclone_execute(tmp[0].strip(), target)
                                     # 0 정상

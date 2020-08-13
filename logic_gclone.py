@@ -86,9 +86,20 @@ service_account_file_path = {accounts_dir}/
             logger.error(traceback.format_exc())
     
     @staticmethod
-    def api(sub, req):
+    def process_api(sub, req):
         try:
-            pass
+            if sub == 'append':
+                ret = {}
+                cmd = req.form['cmd']
+                tmp = ModelSetting.get('gclone_queue_list')
+                if tmp.find(cmd) != -1:
+                    ret['status'] = 'already_exist'
+                else:
+                    ret['status'] = LogicGclone.current_data['status']
+                    LogicGclone.queue_append([cmd])
+                    logger.debug('process_api:%s', ret)
+                    logger.debug('process_api:%s', cmd)
+                return jsonify(ret)
         except Exception as e: 
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())

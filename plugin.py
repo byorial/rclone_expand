@@ -167,3 +167,14 @@ def second_ajax(sub, sub2):
         logger.error('Exception:%s', e)
         logger.error(traceback.format_exc())
 
+
+@blueprint.route('/api/<sub>/<sub2>', methods=['GET', 'POST'])
+@check_api
+def second_api(sub, sub2):
+    try:
+        if sub == 'gclone':
+            return LogicGclone.process_api(sub2, request)
+    except Exception as e: 
+        logger.error('Exception:%s', e)
+        logger.error(traceback.format_exc())
+

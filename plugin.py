@@ -33,7 +33,7 @@ blueprint = Blueprint(package_name, package_name, url_prefix='/%s' %  package_na
 menu = {
     'main' : [package_name, 'Rclone Expand'],
     'sub' : [
-        ['autorclone', 'AutoRclone'], ['gclone', 'Gclone'], ['log', '로그']
+        ['autorclone', 'AutoRclone'], ['gclone', 'Gclone'], ['gsheet', 'GSheet'], ['log', '로그']
     ],
     'category' : 'service',
     'sub2' : {
@@ -42,6 +42,9 @@ menu = {
         ],
         'gclone' : [
             ['setting', '설정'], ['command', '작업'], 
+        ],
+        'gsheet' : [
+            ['list', '목록'],
         ]
     }
 
@@ -82,6 +85,8 @@ def first_menu(sub):
             return redirect('/%s/%s/setting' % (package_name, sub))
         elif sub == 'gclone':
             return redirect('/%s/%s/command' % (package_name, sub))
+        elif sub == 'gsheet':
+            return redirect('/%s/%s/list' % (package_name, sub))
         elif sub == 'log':
             return render_template('log.html', package=package_name)
         return render_template('sample.html', title='%s - %s' % (package_name, sub))
@@ -115,6 +120,8 @@ def second_menu(sub, sub2):
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
             elif sub2 == 'command':
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
+        elif sub == 'gsheet':
+            return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
         return render_template('sample.html', title='%s - %s' % (package_name, sub))
     except Exception as e:
         logger.error('Exception:%s', e)
@@ -163,6 +170,8 @@ def second_ajax(sub, sub2):
             return LogicAutoRclone.process_ajax(sub2, request)
         elif sub == 'gclone':
             return LogicGclone.process_ajax(sub2, request)
+        elif sub == 'gsheet':
+            return LogicGclone.process_ajax2(sub2, request)
     except Exception as e: 
         logger.error('Exception:%s', e)
         logger.error(traceback.format_exc())

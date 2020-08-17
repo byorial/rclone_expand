@@ -123,8 +123,21 @@ service_account_file_path = {accounts_dir}/
     @staticmethod
     def queue_append(queue_list):
         try:
+            logger.debug(queue_list)
+            new_queue_list = []
+            for q in queue_list:
+                src, tar = q.split('|')
+                tmps = tar.split('/')
+                if len(tmps) > 1:
+                    for i in range(1, len(tmps)):
+                        tmps[i] = Util.change_text_for_use_filename(tmps[i]).replace('   ', '  ').replace('  ', ' ').rstrip('.').strip()
+                    new_queue_list.append('%s|%s/%s' % (src, tmps[0], '/'.join(tmps[1:])))
+                else:
+                    new_queue_list.append(q)
+
+            logger.debug(new_queue_list)
             tmp = ModelSetting.get('gclone_queue_list')
-            tmp += '\n' + '\n'.join(queue_list)
+            tmp += '\n' + '\n'.join(new_queue_list)
             ModelSetting.set('gclone_queue_list', tmp)
             socketio_callback('refresh_queue', ModelSetting.get('gclone_queue_list'))
             return LogicGclone.start()

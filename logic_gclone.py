@@ -15,14 +15,6 @@ import shutil
 
 # third-party
 from flask import Blueprint, request, Response, send_file, render_template, redirect, jsonify
-try:
-    import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
-except ImportError as e:
-    os.system('pip install gspread')
-    os.system('pip install oauth2client')
-    import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
 
 # sjva 공용
 from framework import app, db, scheduler, path_app_root, celery, path_data, socketio
@@ -31,6 +23,8 @@ from framework.util import Util, AlchemyEncoder
 from framework.common.share import RcloneTool, Vars
 from system.model import ModelSetting as SystemModelSetting
 from framework.common.util import AESCipher
+from system.logic_command import SystemLogicCommand
+from rclone_expand.model import ModelSetting
 
 # 패키지
 from .plugin import logger, package_name
@@ -92,26 +86,6 @@ service_account_file_path = {accounts_dir}/
         except Exception as e: 
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
-    
-
-    @staticmethod
-    def process_ajax2(sub, req):
-        try:
-            logger.debug('gsheet: %s', sub)
-            if sub == 'search_gsheet':
-                doc_id = req.form['gsheet_doc_id']
-                logger.debug('gsheet_doc_id: %s', doc_id)
-                ret = LogicGclone.retrieve_gsheet(doc_id)
-                return jsonify(ret)
-            elif sub == 'copy':
-                gcstring = req.form['gcstring']
-                ret = LogicGclone.gsheet_copy(gcstring)
-                return jsonify(ret)
-
-        except Exception as e: 
-            logger.error('Exception:%s', e)
-            logger.error(traceback.format_exc())
-
 
     @staticmethod
     def process_api(sub, req):
@@ -151,8 +125,21 @@ service_account_file_path = {accounts_dir}/
     @staticmethod
     def queue_append(queue_list):
         try:
+            logger.debug(queue_list)
+            new_queue_list = []
+            for q in queue_list:
+                src, tar = q.split('|')
+                tmps = tar.split('/')
+                if len(tmps) > 1:
+                    for i in range(1, len(tmps)):
+                        tmps[i] = Util.change_text_for_use_filename(tmps[i]).replace('   ', '  ').replace('  ', ' ').rstrip('.').strip()
+                    new_queue_list.append('%s|%s/%s' % (src, tmps[0], '/'.join(tmps[1:])))
+                else:
+                    new_queue_list.append(q)
+
+            logger.debug(new_queue_list)
             tmp = ModelSetting.get('gclone_queue_list')
-            tmp += '\n' + '\n'.join(queue_list)
+            tmp += '\n' + '\n'.join(new_queue_list)
             ModelSetting.set('gclone_queue_list', tmp)
             socketio_callback('refresh_queue', ModelSetting.get('gclone_queue_list'))
             return LogicGclone.start()
@@ -367,75 +354,6 @@ service_account_file_path = {accounts_dir}/
 
 
 
-
-
-
-
-    @staticmethod
-    def get_service_account_file():
-        try:
-            # TODO:
-            return '/opt/SJVA2/data/rclone_expand/accounts/000ee3ce6b4632dae3e2c3167a5ef6e860b18ef0.json'
-        except Exception as e:
-            logger.error('Exception:%s', e)
-            logger.error(traceback.format_exc())
-
-
-
-    @staticmethod
-    def retrieve_gsheet(doc_id):
-        try:
-            ret = list()
-
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-            json_file = LogicGclone.get_service_account_file()
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
-            gc = gspread.authorize(credentials)
-            doc_url = 'https://docs.google.com/spreadsheets/d/{doc_id}/edit#gid=0'.format(doc_id=doc_id)
-            doc = gc.open_by_url(doc_url)
-            #TODO: excetion
-            ws = None
-            for tws in doc.worksheets():
-                cols = tws.row_values(1)
-                if 'title' in cols and 'folder_id' in cols and 'category' in cols and 'gcstring' in cols:
-                    ws = tws
-                    break
-
-            if ws is None:
-                ret.append({'title':'', 'folder_id':'', 'category':'', 'gcstring':'잘못된서식의 시트입니다'})
-                return ret
-
-            for r in ws.get_all_records():
-                ret.append({'title':r['title'], 'folder_id':r['folder_id'], 'category':r['category'], 'gcstring':r['gcstring']})
-
-            return ret
-        except Exception as e:
-            logger.error('Exception:%s', e)
-            logger.error(traceback.format_exc())
-            return ret
-
-
-    @staticmethod
-    def gsheet_copy(gcstring):
-        try:
-            ret = list()
-            # (?P<remote>^.+):{(?P<folder_id>.+)}/(?P<dir_name>.+)
-            logger.debug(gcstring)
-            match = re.compile("(?P<remote>^.+):{(?P<folder_id>.+)}/(?P<dir_name>.+)$").search(gcstring)
-            folder_id = match.group('folder_id')
-            # TODO: get dest folder_id from category
-            #     def get_my_copy_path(board_type, category_type):
-            from gd_share_client.logic_user import LogicUser as GSCLogicUser
-            logger.debug('folder_id: %s', folder_id)
-            if folder_id[0] == "\'":
-                copy_path = GSCLogicUser.get_my_copy_path('gsheet', folder_id.strip('\''))
-                logger.debug('copy_path: %s', copy_path)
-
-            return ret
-        except Exception as e:
-            logger.error('Exception:%s', e)
-            logger.error(traceback.format_exc())
-            return ret
 
 
 

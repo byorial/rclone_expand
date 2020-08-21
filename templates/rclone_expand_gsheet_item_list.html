@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+  <form id="form_search" class="form-inline" style="text-align:left">
+    <div class="container-fluid">
+      <div class="row show-grid">
+        <span class="col-md-2">
+          <select id="order" name="order" class="form-control form-control-sm">
+            <option value="desc">최근순</option>
+            <option value="asc">오래된순</option>
+	  </select>
+        </span>
+	<span class="col-md-2">
+          <select id="option" name="option" class="form-control form-control-sm">
+            <option value="title">제목</option>
+            <option value="sheet_id">시트ID</option>
+            <option value="folder_id">폴더ID</option>
+            <option value="category">분류</option>
+	  </select>
+        </span>
+        <span class="col-md-8">
+	  <input id="search_word" name="search_word" class="form-control form-control-sm w-75" type="text" placeholder="검색기준에 따라 검색어를 입력하세요." aria-label="Search">
+          <button id="search" class="btn btn-sm btn-outline-success">검색</button>
+  	  <button id="reset_btn" class="btn btn-sm btn-outline-success">리셋</button>
+        </span>
+      </div>
+    </div>
+  </form>
+  <div id='page1'></div>
+<div>
+  {{ macros.m_hr_head_top() }}
+  {{ macros.m_row_start('0') }}
+  {{ macros.m_col(2, macros.m_strong('ID/생성시각')) }}
+  {{ macros.m_col(4, macros.m_strong('제목/매핑제목')) }}
+  {{ macros.m_col(2, macros.m_strong('폴더ID')) }}
+  {{ macros.m_col(2, macros.m_strong('정보')) }}
+  {{ macros.m_col(2, macros.m_strong('복사')) }}
+  {{ macros.m_row_end() }}
+  {{ macros.m_hr_head_bottom() }}
+  <div id="list_div"></div>
+  <div id='page2'></div>
+</div> <!--전체-->
+
+<script type="text/javascript">
+var package_name = "{{arg['package_name'] }}";
+var sub = "{{arg['sub'] }}";
+var current_data = null;
+var curr_page = 1;
+
+$(document).ready(function(){
+  var sheet_id = "{{arg['sheet_id'] }}";
+  if ("{{arg['sheet_id']}}" != "None") {
+    document.getElementById("option").value = 'sheet_id';
+    document.getElementById("search_word").value = "{{arg['sheet_id']}}";
+    document.getElementById("search").click();
+  } else {
+    request_search('1');
+  }
+});
+
+$("#search").click(function(e) {
+  e.preventDefault();
+  request_search('1');
+});
+
+$("body").on('click', '#page', function(e){
+  e.preventDefault();
+  request_search($(this).data('page'));
+});
+
+$("body").on('click', '#copy_btn', function(e){
+  e.preventDefault();
+  id = $(this).data('id');
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/copy',
+    type: "POST", 
+    cache: false,
+    data: {id:id},
+    dataType: "json",
+    success: function (data) {
+      $.notify('<strong>'+data.data+'</strong>', {type: 'success'});
+    }
+  });
+});
+
+function request_search(page) {
+  var formData = get_formdata('#form_search')
+  formData += '&page=' + page;
+  curr_page = page
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/item_list',
+    type: "POST", 
+    cache: false,
+    data: formData,
+    dataType: "json",
+    success: function (data) {
+      window.scrollTo(0,0);
+      make_list(data.list)
+      make_page_html(data.paging)
+    }
+  });
+}
+
+function make_list(data) {
+  current_data = data;
+  str = '';
+  tmp = '';
+  for (i in data) {
+    str += m_row_start();
+    tmp = data[i].id + '<br>' + data[i].created_time;
+    str += m_col(2, tmp);
+    tmp = data[i].title + '<br>' + data[i].title2;
+    str += m_col(4, tmp);
+    tmp = '<a href="https://drive.google.com/drive/folders/' +data[i].folder_id+ '" target="_blank">';
+    tmp += data[i].folder_id+ '</a>';
+    str += m_col(2, tmp);
+    tmp = '<strong>'+data[i].category+'</strong>';
+    tmp += '<span id="size_of_' +data[i].id+'">';
+    if (data[i].obj_num == 0 && (data[i].str_size == "-" || data[i].str_size =="")) {
+      tmp += '<br>' + m_button('getsize_btn', '사이즈확인', [{'key':'id', 'value':data[i].id}]);
+    } else {
+      tmp += '<br>파일수: ' +data[i].obj_num+'<br>사이즈: ' +data[i].str_size+ '<br>';
+    }
+    tmp += '</span>';
+    str += m_col(2, tmp);
+    btn_str = m_button('delete_btn', '삭제', [{'key':'id', 'value':data[i].id}]);
+    btn_str += m_button('copy_btn', '복사', [{'key':'id', 'value':data[i].id}]);
+    btn_str += '<br>복사횟수: ' +data[i].copy_count;
+    str += m_col(2, btn_str);
+    str += m_row_end();
+    if (i != data.length -1) str += m_hr();
+  }
+  document.getElementById("list_div").innerHTML = str;
+}
+
+$("body").on('click', '#getsize_btn', function(e){
+  e.preventDefault();
+  id = $(this).data('id');
+
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/get_size',
+    type: "POST", 
+    cache: false,
+    data: {id:id},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>성공하였습니다.</strong>', {type: 'success'});
+	span_id = "size_of_" + id;
+  	document.getElementById(span_id).innerHTML = data.data;
+      } else {
+        $.notify('<strong>실패: ' +data.data+ '</strong>', {type: 'warning'});
+        return
+      }
+    }
+  });
+});
+
+$("body").on('click', '#delete_btn', function(e){
+  e.preventDefault();
+  id = $(this).data('id');
+  page = curr_page
+
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/delete_item',
+    type: "POST", 
+    cache: false,
+    data: {id:id},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>성공: '+data.data+'</strong>', {type: 'success'});
+  	request_search(page);
+      } else {
+        $.notify('<strong>실패: ' +data.data+ '</strong>', {type: 'warning'});
+        return
+      }
+    }
+  });
+});
+
+function get_data(id) {
+  for(i in current_data) {
+    if (current_data[i].id == id) {
+      return current_data[i];
+    }
+  }
+}
+
+</script>    
+{% endblock %}

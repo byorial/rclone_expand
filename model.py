@@ -48,6 +48,7 @@ class ModelSetting(db.Model):
         except Exception as e:
             logger.error('Exception:%s %s', e, key)
             logger.error(traceback.format_exc())
+            return None
             
     
     @staticmethod
@@ -120,5 +121,361 @@ class ModelSetting(db.Model):
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             logger.error('Error Key:%s Value:%s', key, value)
+
+
+class WSModelItem(db.Model):
+    __tablename__ = '%s_wsitem' % package_name
+    __table_args__ = {'mysql_collate': 'utf8_general_ci'}
+    __bind_key__ = package_name
+
+    id = db.Column(db.Integer, primary_key=True)
+    json = db.Column(db.JSON)
+    created_time = db.Column(db.DateTime)
+
+    doc_id = db.Column(db.String)
+    doc_title = db.Column(db.String)
+    ws_id = db.Column(db.Integer)
+    ws_title = db.Column(db.String)
+    doc_url = db.Column(db.String)
+    in_schedule = db.Column(db.Boolean)
+    updated_time = db.Column(db.DateTime)
+    copy_count = db.Column(db.Integer)
+    total_count = db.Column(db.Integer)
+
+    def __init__(self, info):
+        self.created_time = datetime.now()
+        self.doc_id = info['doc_id']
+        self.doc_title = info['doc_title']
+        self.doc_url = info['doc_url']
+        self.ws_id = info['ws_id']
+        self.ws_title = info['ws_title']
+        self.in_schedule = False
+        self.updated_time = None
+        self.copy_count = 0
+        self.total_count = 0
+
+    def __repr__(self):
+        return repr(self.as_dict())
+
+    def as_dict(self):
+        ret = {x.name: getattr(self, x.name) for x in self.__table__.columns}
+        ret['created_time'] = self.created_time.strftime('%Y-%m-%d %H:%M:%S') 
+        ret['updated_time'] = self.updated_time.strftime('%Y-%m-%d %H:%M:%S') if self.updated_time is not None else None
+        return ret
+
+    def save(self):
+        try:
+            db.session.add(self)
+            db.session.commit()
+        except Exception as e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    def save_as_dict(d):
+        try:
+            entity = WSModelItem()
+            entity.doc_id = unicode(d['doc_id'])
+            entity.doc_title = unicode(d['doc_title'])
+            entity.ws_id = unicode(d['ws_id'])
+            entity.ws_title = unicode(d['ws_title'])
+            entity.doc_url = unicode(d['doc_url'])
+            entity.in_schedule = d['in_schedule']
+
+            db.session.add(entity)
+            db.session.commit()
+        except Exception as e:
+            logger.error(d)
+            logger.error('Exception:%s', e)
+
+    @staticmethod
+    def create(info):
+        try:
+            entity = WSModelItem.get_entity_by_wsinfo(info['doc_id'], int(info['ws_id']))
+            if entity is None:
+                entity = WSModelItem(info)
+                entity.save()
+                return entity
+            return None
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def get_entity_by_wsinfo(doc_id, ws_id):
+        try:
+            logger.debug('doc_id:%s, ws_id:%d', doc_id, ws_id)
+            conditions = []
+            conditions.append(WSModelItem.doc_id==doc_id)
+            conditions.append(WSModelItem.ws_id==ws_id)
+
+            query = db.session.query(WSModelItem).filter(and_(*conditions))
+            count = query.count()
+            if count > 0:
+                entity = query.with_for_update().first()
+                return entity
+            return None
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
+
+
+    @staticmethod
+    def web_list(req):
+        try:
+            ret = {}
+            page = 1
+            page_size = 30
+            job_id = ''
+            search = ''
+            if 'page' in req.form:
+                page = int(req.form['page'])
+            if 'search_word' in req.form:
+                search = req.form['search_word']
+            order = req.form['order'] if 'order' in req.form else 'desc'
+
+            query = WSModelItem.make_query(search=search, order=order)
+            count = query.count()
+            query = query.limit(page_size).offset((page-1)*page_size)
+            lists = query.all()
+            ret['list'] = [item.as_dict() for item in lists]
+            ret['paging'] = Util.get_paging_info(count, page, page_size)
+            return ret
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def make_query(search='', order='desc'):
+        query = db.session.query(WSModelItem)
+        if search is not None and search != '':
+            if search.find('|') != -1:
+                conditions = []
+                for tt in search.split('|'):
+                    if tt != '': conditions.append(WSModelItem.doc_id.like('%'+tt.strip()+'%'))
+                query = query.filter(or_(*conditions))
+            elif search.find(',') != -1:
+                for tt in search.split('|'):
+                    if tt != '': query = query.filter(WSModelItem.doc_id.like('%'+tt.strip()+'%'))
+            else:
+                query = query.filter(WSModelItem.doc_id.like('%'+search+'%'))
+
+        if order == 'desc':
+            query = query.order_by(desc(WSModelItem.id))
+        else:
+            query = query.order_by(WSModelItem.id)
+
+        return query
+
+    @staticmethod
+    def get(id):
+        try:
+            entity = db.session.query(WSModelItem).filter_by(id=id).with_for_update().first()
+            return entity
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def delete(id):
+        try:
+            logger.debug( "delete")
+            db.session.query(WSModelItem).filter_by(id=id).delete()
+            db.session.commit()
+
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+class ListModelItem(db.Model):
+    __tablename__ = '%s_listitem' % package_name
+    __table_args__ = {'mysql_collate': 'utf8_general_ci'}
+    __bind_key__ = package_name
+
+    id = db.Column(db.Integer, primary_key=True)
+    json = db.Column(db.JSON)
+    created_time = db.Column(db.DateTime)
+
+    sheet_id = db.Column(db.String)  #WSModelItem.ID
+    title = db.Column(db.String)
+    title2 = db.Column(db.String)
+    folder_id = db.Column(db.String)
+    category = db.Column(db.String)
+    copy_count = db.Column(db.Integer)
+    obj_num = db.Column(db.Integer)
+    str_size = db.Column(db.String)
+    copied_time = db.Column(db.DateTime)
+
+    def __init__(self, info):
+        self.created_time = datetime.now()
+        self.sheet_id = info['sheet_id']
+        self.title = info['title']
+        self.title2 = info['title2']
+        self.folder_id = info['folder_id']
+        self.category = info['category']
+        self.copied_time = None
+        self.copy_count = 0
+        self.obj_num = info['obj_num']
+        self.str_size = info['str_size']
+
+    def __repr__(self):
+        return repr(self.as_dict())
+
+    def as_dict(self):
+        ret = {x.name: getattr(self, x.name) for x in self.__table__.columns}
+        ret['created_time'] = self.created_time.strftime('%Y-%m-%d %H:%M:%S') 
+        ret['copied_time'] = self.copied_time.strftime('%Y-%m-%d %H:%M:%S') if self.copied_time is not None else None
+
+        return ret
+
+    def save(self):
+        try:
+            db.session.add(self)
+            db.session.commit()
+        except Exception as e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    def save_as_dict(d):
+        try:
+            entity = ListModelItem()
+            entry.sheet_id = unicode(d['sheet_id'])
+            entry.title = unicode(d['title'])
+            entry.title2 = unicode(d['title2'])
+            entry.folder_id = unicode(d['folder_id'])
+            entry.category = unicode(d['category'])
+            entry.copy_count = d['copy_count']
+            entry.obj_num = d['obj_num']
+            entry.category = unicode(d['str_size'])
+
+            db.session.add(entity)
+            db.session.commit()
+        except Exception as e:
+            logger.error(d)
+            logger.error('Exception:%s', e)
+
+    @staticmethod
+    def create(info):
+        try:
+            entity = ListModelItem.get_entity_by_folder_id(info['folder_id'])
+            if entity is None:
+                entity = ListModelItem(info)
+                entity.save()
+                return entity
+            return None
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def get_entity_by_folder_id(folder_id):
+        try:
+            #logger.debug('folder_id:%s', folder_id)
+            entity = db.session.query(ListModelItem).filter_by(folder_id=folder_id).with_for_update().first()
+            return entity
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
+
+    @staticmethod
+    def item_list(req):
+        try:
+            logger.debug(req.form)
+            ret = {}
+            page = 1
+            page_size = 30
+            search = ''
+            if 'page' in req.form:
+                page = int(req.form['page'])
+            if 'search_word' in req.form:
+                search = req.form['search_word']
+            if 'option' in req.form:
+                option = req.form['option']
+            order = req.form['order'] if 'order' in req.form else 'desc'
+
+            query = ListModelItem.make_query(search=search, option=option, order=order)
+            if query is None: return ret
+
+            count = query.count()
+            logger.debug(count)
+            query = query.limit(page_size).offset((page-1)*page_size)
+            lists = query.all()
+            #logger.debug(lists)
+            ret['list'] = [item.as_dict() for item in lists]
+            ret['paging'] = Util.get_paging_info(count, page, page_size)
+            return ret
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def make_query(search='', option='', order='desc'):
+        query = db.session.query(ListModelItem)
+        if search != '':
+            if option == 'sheet_id':
+                try:
+                    sheet_id = int(search)
+                    query = query.filter_by(sheet_id=sheet_id)
+                except ValueError, e:
+                    return None
+            elif option == 'folder_id':
+                query = query.filter(ListModelItem.folder_id.like('%'+search+'%'))
+                return query
+            elif option == 'category':
+                query = query.filter(ListModelItem.category.like('%'+search+'%'))
+            else: # title
+                conditions = []
+                conditions.append(ListModelItem.title.like('%'+search+'%'))
+                conditions.append(ListModelItem.title2.like('%'+search+'%'))
+                query = query.filter(or_(conditions))
+
+        if order == 'desc':
+            query = query.order_by(desc(ListModelItem.id))
+        else:
+            query = query.order_by(ListModelItem.id)
+
+        return query
+
+    @staticmethod
+    def get(id):
+        try:
+            entity = db.session.query(ListModelItem).filter_by(id=id).with_for_update().first()
+            return entity
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
+
+    @staticmethod
+    def delete(id):
+        try:
+            logger.debug( "delete")
+            db.session.query(ListModelItem).filter_by(id=id).delete()
+            db.session.commit()
+
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+
+    @staticmethod
+    def get_total_count(sheet_id):
+        try:
+            return db.session.query(ListModelItem).filter_by(sheet_id=sheet_id).count()
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return 0
+
+
+    @staticmethod
+    def get_copy_count(sheet_id):
+        try:
+            return db.session.query(ListModelItem).filter(and_(ListModelItem.sheet_id == sheet_id, ListModelItem.copy_count > 0)).count()
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return 0
 
 

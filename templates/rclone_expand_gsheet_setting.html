@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+  {{ macros.m_button_group([['global_setting_save_btn', '설정 저장']])}}
+  {{ macros.m_row_start('5') }}
+  {{ macros.m_row_end() }}
+  <nav>
+    {{ macros.m_tab_head_start() }}
+      {{ macros.m_tab_head2('normal', '일반', true) }}
+      {{ macros.m_tab_head2('action', '기타', false) }}
+    {{ macros.m_tab_head_end() }}
+  </nav>
+  <form id='setting' name='setting'>
+  <div class="tab-content" id="nav-tabContent">
+   {{ macros.m_tab_content_start('normal', true) }}
+    {{ macros.setting_global_scheduler_button(arg['scheduler'], arg['is_running']) }}
+    {{ macros.setting_input_int('gsheet_interval', '스케쥴링 실행 주기', value=arg['gsheet_interval'], min='1', placeholder='60', desc='minute 단위, 스케쥴러에 의해 동작하는 경우 최근동작 이후 추가된 데이터만 검사함') }}
+    {{ macros.setting_checkbox('gsheet_auto_start', '시작시 자동실행', value=arg['gsheet_auto_start'], desc='On : 시작시 자동으로 스케쥴러에 등록됩니다.') }}
+    {{ macros.setting_checkbox('use_user_setting', '유저공유설정 사용여부', value=arg['use_user_setting'], desc=['유저공유 설정의 Copy Dest 리모트 정보 규칙 사용여부', 'On: 사용, Off: 사용안함(sheet의 gcstring사용)','유저공유설정시: gsheet,분류명= gc:{폴더ID} 형태로 설정 필요']) }}
+    {{ macros.setting_input_textarea('user_copy_dest_rules', 'Copy Dest매핑 규칙', desc=['분류명|매핑룰, 하위category * 지원, 순서대로 적용', 'ex) 국내영화만 별도 분류시','영화/국내|영화/국내','영화/*|영화/해외'], value=arg['user_copy_dest_rules'], row='3') }}
+    {{ macros.setting_input_textarea('category_rules', '자동다운조건-분류', desc=['분류명, 하위category *지원, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
+    {{ macros.setting_input_textarea('keyword_rules', '자동다운조건-키워드', desc=['제목 키워드, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['keyword_rules'], row='3') }}
+    {{ macros.setting_input_textarea('except_category_rules', '자동다운-제외분류', desc=['자동다운로드시 제외할 분류명','분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['except_category_rules'], row='3') }}
+    {{ macros.m_tab_content_end() }}
+    <!-- 기타 -->
+    {{ macros.m_tab_content_start('action', false) }}
+      {{ macros.setting_button([['all_reset_db_btn','전체삭제']], left='전체삭제', desc='등록된 모든 워크시트와 아이템목록을 삭제합니다.') }}
+      {{ macros.setting_button([['all_ws_reset_db_btn','워크시트삭제']], desc='등록된 모든 워크시트를 삭제합니다.', left='시트전체삭제') }}
+      {{ macros.setting_button([['all_item_reset_db_btn','모든아이템삭제']], desc='아이템 목을 삭제합니다.', left='아이템 목록 삭제') }}
+      {{ macros.setting_button([['copied_item_reset_db_btn','복사된아이템삭제']], desc='이미 복사한 아이템 목록을 삭제합니다.', left='복사된 아이템 삭제' ) }}
+      {{ macros.setting_button([['no_item_reset_db_btn','불량아이템삭제']], desc='파일건수 0개, 사이즈 0Bytes인 아이템을 삭제합니다.', left='정보불량아이템삭제' ) }}
+    {{ macros.m_tab_content_end() }}
+  </div><!--tab-content-->
+</div> <!--전체-->
+
+<script type="text/javascript">
+var package_name = "{{arg['package_name'] }}";
+var sub = "{{arg['sub'] }}";
+
+$(document).ready(function(){
+});
+
+
+$("body").on('click', '#all_reset_db_btn', function(e){
+  e.preventDefault();
+  document.getElementById("confirm_title").innerHTML = "삭제 확인";
+  document.getElementById("confirm_body").innerHTML = "전체 워크시트와 아이템 목록을 삭제 하시겠습니까?";
+  $('#confirm_button').attr('onclick', "all_reset_db();");
+  $("#confirm_modal").modal();
+  return;
+});
+
+function all_reset_db() {
+  type = 'all'
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/reset_db',
+    type: "POST", 
+    cache: false,
+    data: {type:type},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'warning'});
+      }
+    }
+  });
+}
+
+$("body").on('click', '#all_ws_reset_db_btn', function(e){
+  e.preventDefault();
+  document.getElementById("confirm_title").innerHTML = "삭제 확인";
+  document.getElementById("confirm_body").innerHTML = "전체 워크시트를 삭제 하시겠습니까?";
+  $('#confirm_button').attr('onclick', "all_ws_reset_db();");
+  $("#confirm_modal").modal();
+  return;
+});
+
+function all_ws_reset_db() {
+  type = 'all_ws'
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/reset_db',
+    type: "POST", 
+    cache: false,
+    data: {type:type},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'warning'});
+      }
+    }
+  });
+}
+
+$("body").on('click', '#all_item_reset_db_btn', function(e){
+  e.preventDefault();
+  document.getElementById("confirm_title").innerHTML = "삭제 확인";
+  document.getElementById("confirm_body").innerHTML = "전체 아이템 목록을 삭제 하시겠습니까?";
+  $('#confirm_button').attr('onclick', "all_item_reset_db();");
+  $("#confirm_modal").modal();
+  return;
+});
+
+function all_item_reset_db() {
+  type = 'all_item'
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/reset_db',
+    type: "POST", 
+    cache: false,
+    data: {type:type},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'warning'});
+      }
+    }
+  });
+}
+
+
+$("body").on('click', '#copied_item_reset_db_btn', function(e){
+  e.preventDefault();
+  document.getElementById("confirm_title").innerHTML = "삭제 확인";
+  document.getElementById("confirm_body").innerHTML = "복사된 아이템 목록을 삭제 하시겠습니까?";
+  $('#confirm_button').attr('onclick', "copied_item_reset_db();");
+  $("#confirm_modal").modal();
+  return;
+});
+
+function copied_item_reset_db() {
+  type = 'copied_item'
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/reset_db',
+    type: "POST", 
+    cache: false,
+    data: {type:type},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'warning'});
+      }
+    }
+  });
+}
+
+$("body").on('click', '#no_item_reset_db_btn', function(e){
+  e.preventDefault();
+  document.getElementById("confirm_title").innerHTML = "삭제 확인";
+  document.getElementById("confirm_body").innerHTML = "불량아이템을 목록에서 삭제 하시겠습니까?";
+  $('#confirm_button').attr('onclick', "no_item_reset_db();");
+  $("#confirm_modal").modal();
+  return;
+});
+
+function no_item_reset_db() {
+  type = 'no_item'
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/reset_db',
+    type: "POST", 
+    cache: false,
+    data: {type:type},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>' +data.data+ '</strong>', {type: 'warning'});
+      }
+    }
+  });
+}
+
+</script>    
+{% endblock %}

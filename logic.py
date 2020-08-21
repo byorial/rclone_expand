@@ -18,7 +18,6 @@ from .plugin import logger, package_name
 from .model import ModelSetting
 #########################################################
 
-
 class Logic(object):
     db_default = { 
         'db_version' : '1',
@@ -31,6 +30,14 @@ class Logic(object):
         'gclone_fix_option' : '--log-level INFO --stats 1s',
         'gclone_user_option' : '--drive-server-side-across-configs --tpslimit 3 --transfers 3 --create-empty-src-dirs --ignore-existing --size-only --disable ListR',
         'gclone_default_folderid' : '',
+        # added by orial for gsheet
+        'gsheet_auto_start': 'False',
+        'gsheet_interval': '10',
+        'use_user_setting': 'True',
+        'category_rules': u'영화/국내\n드라마/국내',
+        'keyword_rules': u'',
+        'except_category_rules': u'음악',
+        'user_copy_dest_rules': u'',
     }
 
     @staticmethod

@@ -33,7 +33,7 @@ class Logic(object):
         'gclone_default_folderid' : '',
         # added by orial for gsheet
         'gsheet_auto_start': 'False',
-        'gsheet_interval': '10',
+        'gsheet_interval': '60',
         'use_user_setting': 'True',
         'category_rules': u'영화/국내\n드라마/국내',
         'keyword_rules': u'',

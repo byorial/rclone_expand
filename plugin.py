@@ -113,6 +113,7 @@ def second_menu(sub, sub2):
                     project_id = json.loads(open(arg['path_credentials'],'r').read())['installed']['project_id']
                     arg['api_use1'] = 'https://console.developers.google.com/apis/library/serviceusage.googleapis.com?project=%s' % project_id
                     arg['api_use2'] = 'https://console.developers.google.com/apis/library/iam.googleapis.com?project=%s' % project_id
+                    arg['api_use3'] = 'https://console.developers.google.com/apis/library/sheets.googleapis.com?project=%s' % project_id
                 except:
                     arg['api_use1'] = arg['api_use2'] = ''
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
@@ -123,6 +124,11 @@ def second_menu(sub, sub2):
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
         elif sub == 'gsheet':
             if sub2 == 'setting':
+                setting_list = db.session.query(ModelSetting).all()
+                arg = Util.db_list_to_dict(setting_list)
+                arg['scheduler'] = str(scheduler.is_include("rclone_expand_gsheet"))
+                arg['is_running'] = str(scheduler.is_running("rclone_expand_gsheet"))
+
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
             elif sub2 == 'list':
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
@@ -148,13 +154,12 @@ def ajax(sub):
             ret = ModelSetting.setting_save(request)
             return jsonify(ret)
         elif sub == 'scheduler':
-            sub = request.form['sub']
             go = request.form['scheduler']
             logger.debug('scheduler :%s', go)
             if go == 'true':
-                Logic.scheduler_start(sub)
+                Logic.scheduler_start()
             else:
-                Logic.scheduler_stop(sub)
+                Logic.scheduler_stop()
             return jsonify(go)
         elif sub == 'reset_db':
             sub = request.form['sub']

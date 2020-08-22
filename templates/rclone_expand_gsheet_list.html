@@ -26,6 +26,7 @@
   {{ macros.m_col(2,  macros.m_strong('ID/등록/갱신시각')) }}
   {{ macros.m_col(5,  macros.m_strong('문서제목/시트제목')) }}
   {{ macros.m_col(2,  macros.m_strong('복사/자료건수')) }}
+  {{ macros.m_col(1,  macros.m_strong('스케쥴링')) }}
   {{ macros.m_col(2,  macros.m_strong('처리기능')) }}
   {{ macros.m_row_end() }}
   {{ macros.m_hr_head_bottom() }}
@@ -70,15 +71,15 @@
 <!-- Modal: 문서검색 및 등록 END -->
 
 <!-- Modal: 시트-작업수정 -->
-{{ macros.m_modal_start('job_modal', '', 'modal-lg') }}
-  <form id='item_setting' name='item_setting'>
-    <input type='hidden' id="job_id" name="job_id">
-    {{ macros.info_text('job_doc_title', '제목') }}
-    {{ macros.info_text('job_doc_id', '문서ID') }}
-    {{ macros.info_text('job_ws_title', '시트제목') }}
-    {{ macros.info_text('job_stat', '복사/자료건수') }}
-    {{ macros.setting_checkbox('job_in_schedule', '스케쥴링에 포함', desc=['On: 스케쥴링 동작시 문서 갱신 및 자동복사.']) }}
-    {{ macros.setting_button([['job_save_btn', '저장'], ['job_remove_btn', '삭제']]) }}
+{{ macros.m_modal_start('ws_detail_modal', '', 'modal-lg') }}
+  <form id='ws_detail' name='ws_detail'>
+    <input type='hidden' id="sheet_id" name="sheet_id">
+    {{ macros.info_text('ws_doc_title', '제목') }}
+    {{ macros.info_text('ws_doc_id', '문서ID') }}
+    {{ macros.info_text('ws_title', '시트제목') }}
+    {{ macros.info_text('ws_stat', '복사/자료건수') }}
+    {{ macros.setting_checkbox('ws_in_schedule', '스케쥴링에 포함', desc=['On: 스케쥴링 동작시 문서 갱신 및 자동복사.']) }}
+    {{ macros.setting_button([['ws_save_btn', '저장'], ['job_remove_btn', '삭제']]) }}
   </form>
   <hr>
 {{ macros.m_modal_end() }}
@@ -89,6 +90,7 @@
 var package_name = "{{arg['package_name'] }}";
 var sub = "{{arg['sub'] }}";
 var current_data = null;
+var current_page = 1
 
 $(document).ready(function(){
   request_search('1');
@@ -120,25 +122,26 @@ $("body").on('click', '#gsheet_search_btn', function(e) {
     success: function (data) {
       current_data = data;
       if (data == '') {
-        $.notify('<strong>검색에 실패하셨습니다.</strong>', {type: 'warning'});
-        return
-      }
-      str = '';
-      tmp = '';
+        $.notify('<strong>검색에 실패하셨습니다.로그를 확인해주세요.</strong>', {type: 'warning'});
+	return
+      } else {
+        str = '';
+        tmp = '';
 
-      for (var i in data) {
-        str += m_row_start();
-	tmp = '<div class="col-md-10" style="align-items:center; text-align:left;">';
-	tmp += '문서제목: <a href="' + data[i].doc_url + '/edit#gid=' + data[i].ws_id + '" target="_blank">';
-	tmp += data[i].doc_title + '</a><br>';
-	tmp += '&nbsp;&nbsp;&nbsp;&nbsp;시트명: ' + data[i].ws_title + '</div>';
-        str += tmp;
-        btn_str = m_button('register_ws_btn', '등록', [{'key':'index', 'value':i}]);
-        str += '<div class="col-md-2" style="align-items:center; text-align:left;">';
-        str += btn_str;
-	str += '</div><br>';
-	str += m_row_end();
-	if (i != data.length -1) str += m_hr(0);
+        for (var i in data) {
+          str += m_row_start();
+          tmp = '<div class="col-md-10" style="align-items:center; text-align:left;">';
+          tmp += '문서제목: <a href="' + data[i].doc_url + '/edit#gid=' + data[i].ws_id + '" target="_blank">';
+          tmp += data[i].doc_title + '</a><br>';
+          tmp += '&nbsp;&nbsp;&nbsp;&nbsp;시트명: ' + data[i].ws_title + '</div>';
+          str += tmp;
+          btn_str = m_button('register_ws_btn', '등록', [{'key':'index', 'value':i}]);
+          str += '<div class="col-md-2" style="align-items:center; text-align:left;">';
+          str += btn_str;
+          str += '</div><br>';
+          str += m_row_end();
+          if (i != data.length -1) str += m_hr(0);
+        }
       }
       document.getElementById("modal_gsheet_result").innerHTML = str;
     }
@@ -190,22 +193,23 @@ $("#gsheet_modal").on('click', '#modal_reset_btn', function(e){
   document.getElementById("gsheet_doc_id").value = '';
 });
 
-$("body").on('click', '#ws_delete_btn', function(e){
+$("body").on('click', '#ws_one_execute_btn', function(e){
   e.preventDefault();
-  id = $(this).data('id');
-  info = get_data(id);
+  page = current_page;
+  sheet_id = $(this).data('id');
   $.ajax({
-    url: '/' + package_name + '/ajax/'+sub+'/delete_ws',
+    url: '/' + package_name + '/ajax/'+sub+'/one_execute',
     type: "POST", 
     cache: false,
-    data: {id:id},
+    data: {id:sheet_id},
     dataType: "json",
     success: function (data) {
       if (data.ret) {
-        $.notify('<strong>워크시트를 삭제하였습니다.</strong>', {type: 'success'});
-	location.reload();
+        $.notify('<strong>성공: '+data.data+'</strong>', {type: 'success'});
+  	request_search(page);
       } else {
-        $.notify('<strong>워크시트 삭제가 실패하였습니다.</strong>', {type: 'warning'});
+        $.notify('<strong>실패: ' +data.data+ '</strong>', {type: 'warning'});
+        return
       }
     }
   });
@@ -216,8 +220,9 @@ $("body").on('click', '#ws_delete_btn', function(e){
 function request_search(page) {
   var formData = get_formdata('#form_search')
   formData += '&page=' + page;
+  current_page = page
   $.ajax({
-    url: '/' + package_name + '/ajax/'+sub+'/web_list',
+    url: '/' + package_name + '/ajax/'+sub+'/ws_list',
     type: "POST", 
     cache: false,
     data: formData,
@@ -254,9 +259,13 @@ function make_list(data) {
     tmp = data[i].copy_count + '/<br>';
     tmp += data[i].total_count;
     str += m_col(2, tmp);
-  
-    btn_str = m_button('ws_modify_btn', '수정', [{'key':'id', 'value':data[i].id}]);
-    btn_str += m_button('ws_delete_btn', '삭제', [{'key':'id', 'value':data[i].id}]);
+    if (data[i].in_schedule) {
+      str += m_col(1, '포함')
+    } else {
+      str += m_col(1, '미포함')
+    }
+    btn_str = m_button('ws_modify_btn', '시트수정', [{'key':'id', 'value':data[i].id}]);
+    btn_str += m_button('ws_one_execute_btn', '수동실행', [{'key':'id', 'value':data[i].id}]);
     btn_str += '<br>'
     btn_str += m_button('load_item_btn', '목록갱신', [{'key':'id', 'value':data[i].id}]);
     btn_str += m_button('item_list_btn', '목록보기', [{'key':'id', 'value':data[i].id}]);
@@ -273,20 +282,20 @@ $("body").on('click', '#ws_modify_btn', function(e){
   e.preventDefault();
   id = $(this).data('id');
   item = get_data(id);
-  document.getElementById("job_id").value = id;
-  document.getElementById("job_modal_title").innerHTML = 'ID : ' + id;
-  document.getElementById("job_doc_title").innerHTML = item.doc_title;
-  document.getElementById("job_doc_id").innerHTML = item.doc_id;
-  document.getElementById("job_ws_title").innerHTML = item.ws_title;
+  document.getElementById("sheet_id").value = id;
+  document.getElementById("ws_detail_modal_title").innerHTML = 'ID : ' + id;
+  document.getElementById("ws_doc_title").innerHTML = item.doc_title;
+  document.getElementById("ws_doc_id").innerHTML = item.doc_id;
+  document.getElementById("ws_title").innerHTML = item.ws_title;
   stat = item.copy_count + '/' + item.total_count
-  document.getElementById("job_stat").innerHTML = stat;
+  document.getElementById("ws_stat").innerHTML = stat;
   if (item.in_schedule) {
-    document.getElementById("job_in_schedule").value = 'on';
-    $('#job_in_schedule').bootstrapToggle('on')
+    document.getElementById("ws_in_schedule").value = 'on';
+    $('#ws_in_schedule').bootstrapToggle('on')
   } else {
-    $('#job_in_schedule').bootstrapToggle('off')
+    $('#ws_in_schedule').bootstrapToggle('off')
   }
-  $("#job_modal").modal();
+  $("#ws_detail_modal").modal();
 });
 
 
@@ -325,6 +334,28 @@ $("body").on('click', '#item_list_btn', function(e){
   sheet_id = $(this).data('id');
   $(location).attr('href', '/rclone_expand/gsheet/item_list?sheet_id=' + sheet_id)
 });
+
+$('#ws_detail_modal').on('click', '#ws_save_btn', function (e) {
+  e.preventDefault();
+  var formData = get_formdata('#ws_detail');
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/save_wsinfo',
+    type: "POST", 
+    cache: false,
+    data: formData,
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>저장하였습니다.</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>저장실패</strong>', {type: 'warning'});
+      }
+      $("#ws_detail_modal").modal('hide');
+      request_search(current_page);
+    }
+  });
+})
+
 
 $('#gsheet_modal').on('hidden.bs.modal', function () {
   location.reload();

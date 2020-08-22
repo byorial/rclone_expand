@@ -44,6 +44,32 @@ from .logic_gclone import LogicGclone
 class LogicGSheet(object):
     
     @staticmethod
+    @celery.task
+    def scheduler_function():
+        try:
+            logger.info('GSheet Scheduler-function started')
+            for wsentity in WSModelItem.get_scheduled_list():
+                if wsentity.is_running:
+                    logger.info('SKIP: sheet_id(%d) is running', wsentity.id)
+                    continue
+
+                # reload items
+                ret = LogicGSheet.load_items(wsentity.id)
+
+                def func():
+                    ret = LogicGSheet.scheduled_copy(wsentity.id)
+
+                thread = threading.Thread(target=func, args=())
+                thread.setDaemon(True)
+                thread.start()            
+
+            logger.info('GSheet Scheduler-function ended')
+
+        except Exception as e: 
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
     def process_ajax(sub, req):
         try:
             if sub == 'copy':
@@ -60,9 +86,9 @@ class LogicGSheet(object):
                 ret = LogicGSheet.register_gsheet(wsinfo)
                 return jsonify(ret)
             elif sub == 'delete_ws':
-                id= req.form['id']
+                logger.debug(req.form)
+                id = int(req.form['id'])
 	    	entity = WSModelItem.get(id)
-
 		if entity is None:
                     ret = {'ret':False, 'data':'항목을 찾을 수 없습니다.'}
                     return jsonify(ret)
@@ -70,8 +96,12 @@ class LogicGSheet(object):
                 WSModelItem.delete(entity.id)
                 ret = {'ret': True, 'data':'Success'}
                 return jsonify(ret)
-            elif sub == 'web_list':
-                ret = WSModelItem.web_list(req)
+            elif sub == 'ws_list':
+                ret = WSModelItem.ws_list(req)
+                return jsonify(ret)
+            elif sub == 'one_execute':
+                id= req.form['id']
+                ret = LogicGSheet.scheduled_copy(id)
                 return jsonify(ret)
             elif sub == 'load_items':
                 id= req.form['id']
@@ -81,12 +111,9 @@ class LogicGSheet(object):
                 id= req.form['id']
                 ret = LogicGSheet.get_size(id)
                 return jsonify(ret)
-            elif sub == 'ws_list':
-                try:
-                    sheet_id = req.form['sheet_id']
-                    ret = ListModelItem.item_list(req, sheet_id=sheet_id)
-                except:
-                    ret = ListModelItem.item_list(req)
+            elif sub == 'save_wsinfo':
+                logger.debug(req.form)
+                ret = LogicGSheet.save_wsinfo(req.form)
                 return jsonify(ret)
             elif sub == 'item_list':
                 ret = ListModelItem.item_list(req)
@@ -126,14 +153,16 @@ class LogicGSheet(object):
     @staticmethod
     def search_gsheet(doc_id):
         try:
-            ret = []
             logger.debug('start to search_gsheet: %s', doc_id)
             json_file = LogicGSheet.get_first_json()
             if json_file is None:
                 logger.error('failed to get json file. please check json file in (%s)', ModelSetting.get('path_accounts'))
-                return ret
+                return []
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-            doc_url = 'https://docs.google.com/spreadsheets/d/{doc_id}'.format(doc_id=doc_id)
+
+            if doc_id.startswith(u'http'): doc_url = doc_id
+            else: doc_url = 'https://docs.google.com/spreadsheets/d/{doc_id}'.format(doc_id=doc_id)
+            logger.debug('url(%s)', doc_url)
 
             credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
             gsp = gspread.authorize(credentials)
@@ -147,6 +176,7 @@ class LogicGSheet(object):
         except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
+            return []
 
     @staticmethod
     def register_gsheet(info):
@@ -191,7 +221,7 @@ class LogicGSheet(object):
 
             doc_id = wsentity.doc_id
             ws_id  = wsentity.ws_id
-            logger.debug('start to get item from gsheet: %s, ws:%d', doc_id, ws_id)
+            logger.debug('start to get items from gsheet: %s, ws:%d', doc_id, ws_id)
             json_file = LogicGSheet.get_first_json()
             if json_file is None:
                 logger.error('failed to get json file. please check json file in (%s)', ModelSetting.get('path_accounts'))
@@ -204,10 +234,12 @@ class LogicGSheet(object):
             doc = gsp.open_by_url(doc_url)
             ws = LogicGSheet.get_worksheet(doc, ws_id)
             count = 0
+            scount = 0
             for r in ws.get_all_records(head=1):
                 try:
                     # 폴더ID, 분류가 없는 경우 제외
                     if r[u'분류'] == '' or r[u'폴더 ID'] == '':
+                        scount += 1
                         continue
 
                     # 파일수, 사이즈가 없는 경우 예외처리
@@ -218,6 +250,7 @@ class LogicGSheet(object):
 
                     # 파일수0, 사이즈 0Bytes인경우 스킵
                     if obj_num == 0 and str_size == u'0 Bytes':
+                        scount += 1
                         continue
 
                     info = {'sheet_id':wsmodel_id, 
@@ -230,7 +263,8 @@ class LogicGSheet(object):
 
                     entity = ListModelItem.create(info)
                     if entity is None:
-                        logger.info('already exist item(folder_id:%s)', info['folder_id'])
+                        #logger.debug('already exist item(folder_id:%s)', info['folder_id'])
+                        scount += 1
                         continue
                     count += 1
 
@@ -242,11 +276,28 @@ class LogicGSheet(object):
             wsentity.updated_time = datetime.now()
             wsentity.total_count += count
             wsentity.save()
-            ret = {'ret':True, 'data':'{count} 항목을 추가하였습니다.'.format(count=count)}
+            logger.info('{count} 항목을 추가하였습니다(스킵: {scount}건)'.format(count=count, scount=scount))
+            ret = {'ret':True, 'data':'{count} 항목을 추가하였습니다(스킵: {scount}건)'.format(count=count, scount=scount)}
             return ret
 
         except Exception as e:
             logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def save_wsinfo(req):
+        try:
+            sheet_id = int(req['sheet_id'])
+            in_schedule = True if req['ws_in_schedule'] == 'True' else False
+            wsentity = WSModelItem.get(sheet_id)
+            if wsentity is None:
+                return {'ret':False, 'data':'유효한 아이템이 없습니다'}
+            wsentity.in_schedule = in_schedule
+            logger.debug('save_wsinfo: sheet_id(%d), in_schedule(%s)', wsentity.id, wsentity.in_schedule)
+            wsentity.save()
+            return {'ret':True, 'data':'저장하였습니다.'}
+        except Exception as e:
+            logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
 
     @staticmethod
@@ -273,7 +324,6 @@ class LogicGSheet(object):
             logger.debug('getsize: folder_id:%s obj_num: %d, size: %s', entity.folder_id, entity.obj_num, entity.str_size)
             entity.save()
             info_str = '<br>파일수: {obj_num}<br>사이즈: {str_size}'.format(obj_num=entity.obj_num, str_size=entity.str_size)
-            # TODO: thread - 시트의 파일 정보 업데이트 
             def func():
                 ret = LogicGSheet.update_size(entity.id)
 
@@ -291,7 +341,7 @@ class LogicGSheet(object):
     def get_user_copy_dest(category):
         try:
             if ModelSetting.get_bool('use_user_setting'):
-                rule_list = ModelSetting.get('user_copy_dest_rules').split('\n')
+                rule_list = ModelSetting.get_list('user_copy_dest_rules', '\n')
                 for rule in rule_list:
                     orig, converted = rule.split('|')
                     if orig.endswith('*'): orig = orig.replace('*','')
@@ -315,6 +365,42 @@ class LogicGSheet(object):
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
+
+    @staticmethod
+    def scheduled_copy(sheet_id):
+        try:
+            wsentity = WSModelItem.get(sheet_id)
+            wsentity.is_running = True
+            wsentity.save()
+
+            # COPY items
+            succeed = 0
+            failed = 0
+
+
+            for entity in ListModelItem.get_schedule_target_items(sheet_id):
+                logger.info('copy target: %s, %s, %s, %s', 
+                        entity.title2 if entity.title2 != u"" else entity.title,
+                        entity.folder_id,
+                        entity.category,
+                        entity.str_size)
+                ret = LogicGSheet.gclone_copy(entity.id)
+
+                logger.info(ret['data'])
+                if ret['ret']: succeed += 1
+                else: failed += 1
+
+            total = succeed + failed
+            logger.info('scheduled_copy: total(%d), succeed(%d), failed(%d)', total, succeed, failed)
+
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+        finally:
+            wsentity.is_running = False
+            wsentity.save()
+            pass
+
 
     @staticmethod
     def update_size(entity_id):
@@ -359,7 +445,9 @@ class LogicGSheet(object):
             logger.debug('category: %s -> %s', entity.category, category)
 
             from gd_share_client.logic_user import LogicUser
+            #logger.debug(category)
             my_remote = LogicUser.get_my_copy_path('gsheet', category)
+            logger.debug('my_remote(%s)', my_remote)
 
             if ModelSetting.get_bool('use_user_setting'):
                 dest_folder = entity.title2 if entity.title2 != u'' else entity.title
@@ -384,7 +472,7 @@ class LogicGSheet(object):
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
-            return None
+            return {'ret':False, 'data':'Exception'}
 
     @staticmethod
     def delete_item(id):
@@ -407,6 +495,10 @@ class LogicGSheet(object):
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
             return {'ret':False, 'data':'Exception'}
+
+    @staticmethod
+    def unload():
+        WSModelItem.unload()
 
     @staticmethod
     def reset_db(reqtype):

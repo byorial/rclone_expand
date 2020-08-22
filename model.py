@@ -141,6 +141,7 @@ class WSModelItem(db.Model):
     updated_time = db.Column(db.DateTime)
     copy_count = db.Column(db.Integer)
     total_count = db.Column(db.Integer)
+    is_running = db.Column(db.Boolean)
 
     def __init__(self, info):
         self.created_time = datetime.now()
@@ -153,6 +154,7 @@ class WSModelItem(db.Model):
         self.updated_time = None
         self.copy_count = 0
         self.total_count = 0
+        self.is_running = False
 
     def __repr__(self):
         return repr(self.as_dict())
@@ -218,10 +220,22 @@ class WSModelItem(db.Model):
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return None
+            
+    @staticmethod
+    def get_scheduled_list():
+        try:
+            logger.debug('start: get_scheduled_list')
+            query = db.session.query(WSModelItem).filter_by(in_schedule = True)
+            logger.debug('count: %d', query.count())
+            return query.all()
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
 
 
     @staticmethod
-    def web_list(req):
+    def ws_list(req):
         try:
             ret = {}
             page = 1
@@ -281,6 +295,17 @@ class WSModelItem(db.Model):
         try:
             logger.debug( "delete")
             db.session.query(WSModelItem).filter_by(id=id).delete()
+            db.session.commit()
+
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def unload():
+        try:
+            for e in db.session.query(WSModelItem).filter(WSModelItem.is_running == True).all():
+                e.is_running = False
             db.session.commit()
 
         except Exception, e:
@@ -379,6 +404,25 @@ class ListModelItem(db.Model):
             return None
 
     @staticmethod
+    def get_schedule_target_items(sheet_id):
+        try:
+            query = db.session.query(ListModelItem).filter_by(sheet_id=sheet_id)
+            query = query.filter_by(copy_count = 0)
+
+            categories = ModelSetting.get_list('category_rules', '\n')
+            if len(categories) > 0:
+                query = query.filter(ListModelItem.category.in_(categories))
+            xcategories = ModelSetting.get_list('except_category_rules', '\n')
+            if len(xcategories) > 0:
+                query = query.filter(not_(ListModelItem.category.in_(xcategories)))
+            logger.info('get_schedule_target_items: count(%d)', query.count())
+            return query.all()
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
+
+    @staticmethod
     def item_list(req):
         try:
             logger.debug(req.form)
@@ -389,7 +433,7 @@ class ListModelItem(db.Model):
             if 'page' in req.form:
                 page = int(req.form['page'])
             if 'search_word' in req.form:
-                search = req.form['search_word']
+                search = req.form['search_word'] 
             if 'option' in req.form:
                 option = req.form['option']
             order = req.form['order'] if 'order' in req.form else 'desc'

@@ -15,13 +15,12 @@ import shutil
 
 # third-party
 from flask import Blueprint, request, Response, send_file, render_template, redirect, jsonify
+from oauth2client.service_account import ServiceAccountCredentials
 try:
     import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
 except ImportError:
-    os.system('pip install gspread oauth2client')
+    os.system('pip install gspread')
     import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
 
 # sjva 공용
 from framework import app, db, scheduler, path_app_root, celery, path_data, socketio

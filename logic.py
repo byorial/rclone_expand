@@ -37,6 +37,7 @@ class Logic(object):
         'use_user_setting': 'True',
         'category_rules': u'영화/국내\n드라마/국내',
         'keyword_rules': u'',
+        'except_category_rules': u'',
         'user_copy_dest_rules': u'',
     }
 

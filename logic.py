@@ -81,7 +81,6 @@ class Logic(object):
     @staticmethod
     def plugin_unload():
         try:
-            LogicGSheet.unload()
             logger.debug('%s plugin_unload', package_name)
         except Exception as e: 
             logger.error('Exception:%s', e)
@@ -119,7 +118,7 @@ class Logic(object):
 
     @staticmethod
     def migration():
-        pass
+        LogicGSheet.ws_ir_init()
 
     ##################################################################################
 

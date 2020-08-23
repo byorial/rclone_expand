@@ -263,17 +263,22 @@ class WSModelItem(db.Model):
     def make_query(search='', order='desc'):
         query = db.session.query(WSModelItem)
         if search is not None and search != '':
+            conditions = []
             if search.find('|') != -1:
-                conditions = []
                 for tt in search.split('|'):
-                    if tt != '': conditions.append(WSModelItem.doc_id.like('%'+tt.strip()+'%'))
-                query = query.filter(or_(*conditions))
+                    if tt != '':
+                        conditions.append(WSModelItem.doc_title.like('%'+tt.strip()+'%'))
+                        conditions.append(WSModelItem.ws_title.like('%'+tt.strip()+'%'))
             elif search.find(',') != -1:
-                for tt in search.split('|'):
-                    if tt != '': query = query.filter(WSModelItem.doc_id.like('%'+tt.strip()+'%'))
+                for tt in search.split(','):
+                    if tt != '':
+                        conditions.append(WSModelItem.doc_title.like('%'+tt.strip()+'%'))
+                        conditions.append(WSModelItem.ws_title.like('%'+tt.strip()+'%'))
             else:
-                query = query.filter(WSModelItem.doc_id.like('%'+search+'%'))
+                conditions.append(WSModelItem.doc_title.like('%'+search+'%'))
+                conditions.append(WSModelItem.ws_title.like('%'+search+'%'))
 
+            query = query.filter(or_(*conditions))
         if order == 'desc':
             query = query.order_by(desc(WSModelItem.id))
         else:
@@ -302,7 +307,7 @@ class WSModelItem(db.Model):
             logger.error(traceback.format_exc())
 
     @staticmethod
-    def unload():
+    def ws_ir_init():
         try:
             for e in db.session.query(WSModelItem).filter(WSModelItem.is_running == True).all():
                 e.is_running = False

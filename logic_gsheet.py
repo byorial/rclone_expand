@@ -497,8 +497,8 @@ class LogicGSheet(object):
             return {'ret':False, 'data':'Exception'}
 
     @staticmethod
-    def unload():
-        WSModelItem.unload()
+    def ws_ir_init():
+        WSModelItem.ws_ir_init()
 
     @staticmethod
     def reset_db(reqtype):

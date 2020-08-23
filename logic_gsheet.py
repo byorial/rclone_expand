@@ -145,6 +145,7 @@ class LogicGSheet(object):
     @staticmethod
     def search_gsheet(doc_id):
         try:
+            ret = []
             logger.debug('start to search_gsheet: %s', doc_id)
             json_file = LogicGSheet.get_first_json()
             if json_file is None:

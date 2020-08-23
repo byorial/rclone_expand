@@ -25,6 +25,7 @@ from .model import ModelSetting
 from .logic import Logic
 from .logic_autorclone import LogicAutoRclone
 from .logic_gclone import LogicGclone
+from .logic_gsheet import LogicGSheet
 #########################################################
 
 
@@ -33,7 +34,7 @@ blueprint = Blueprint(package_name, package_name, url_prefix='/%s' %  package_na
 menu = {
     'main' : [package_name, 'Rclone Expand'],
     'sub' : [
-        ['autorclone', 'AutoRclone'], ['gclone', 'Gclone'], ['log', '로그']
+        ['autorclone', 'AutoRclone'], ['gclone', 'Gclone'], ['gsheet', 'GSheet'], ['log', '로그']
     ],
     'category' : 'service',
     'sub2' : {
@@ -41,8 +42,11 @@ menu = {
             ['setting', '설정']
         ],
         'gclone' : [
-            ['setting', '설정'], ['command', '작업'], 
-        ]
+            ['setting', '설정'], ['command', '작업'] 
+        ],
+        'gsheet' : [
+            ['setting', '설정'], ['list', '시트목록'], ['item_list', '아이템목록']
+        ],
     }
 
 }
@@ -82,6 +86,8 @@ def first_menu(sub):
             return redirect('/%s/%s/setting' % (package_name, sub))
         elif sub == 'gclone':
             return redirect('/%s/%s/command' % (package_name, sub))
+        elif sub == 'gsheet':
+            return redirect('/%s/%s/list' % (package_name, sub))
         elif sub == 'log':
             return render_template('log.html', package=package_name)
         return render_template('sample.html', title='%s - %s' % (package_name, sub))
@@ -96,6 +102,7 @@ def second_menu(sub, sub2):
     try:
         arg = ModelSetting.to_dict()
         arg['sub'] = sub
+        logger.debug('sub: {sub}, sub2: {sub2}'.format(sub=sub, sub2=sub2))
         if sub == 'autorclone':
             if sub2 == 'setting':
                 arg['autorclone_credentials_status'] = os.path.exists(ModelSetting.get('path_credentials'))
@@ -107,6 +114,7 @@ def second_menu(sub, sub2):
                     project_id = json.loads(open(arg['path_credentials'],'r').read())['installed']['project_id']
                     arg['api_use1'] = 'https://console.developers.google.com/apis/library/serviceusage.googleapis.com?project=%s' % project_id
                     arg['api_use2'] = 'https://console.developers.google.com/apis/library/iam.googleapis.com?project=%s' % project_id
+                    arg['api_use3'] = 'https://console.developers.google.com/apis/library/sheets.googleapis.com?project=%s' % project_id
                 except:
                     arg['api_use1'] = arg['api_use2'] = ''
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
@@ -114,6 +122,16 @@ def second_menu(sub, sub2):
             if sub2 == 'setting':
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
             elif sub2 == 'command':
+                return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
+        elif sub == 'gsheet':
+            if sub2 == 'setting':
+                arg['scheduler'] = str(scheduler.is_include("rclone_expand_gsheet"))
+                arg['is_running'] = str(scheduler.is_running("rclone_expand_gsheet"))
+                return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
+            elif sub2 == 'list':
+                return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
+            elif sub2 == 'item_list':
+                arg["sheet_id"] = request.args.get('sheet_id')
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
         return render_template('sample.html', title='%s - %s' % (package_name, sub))
     except Exception as e:
@@ -134,13 +152,12 @@ def ajax(sub):
             ret = ModelSetting.setting_save(request)
             return jsonify(ret)
         elif sub == 'scheduler':
-            sub = request.form['sub']
             go = request.form['scheduler']
             logger.debug('scheduler :%s', go)
             if go == 'true':
-                Logic.scheduler_start(sub)
+                Logic.scheduler_start()
             else:
-                Logic.scheduler_stop(sub)
+                Logic.scheduler_stop()
             return jsonify(go)
         elif sub == 'reset_db':
             sub = request.form['sub']
@@ -163,6 +180,8 @@ def second_ajax(sub, sub2):
             return LogicAutoRclone.process_ajax(sub2, request)
         elif sub == 'gclone':
             return LogicGclone.process_ajax(sub2, request)
+        elif sub == 'gsheet':
+            return LogicGSheet.process_ajax(sub2, request)
     except Exception as e: 
         logger.error('Exception:%s', e)
         logger.error(traceback.format_exc())

@@ -23,6 +23,8 @@ from framework.util import Util, AlchemyEncoder
 from framework.common.share import RcloneTool, Vars
 from system.model import ModelSetting as SystemModelSetting
 from framework.common.util import AESCipher
+from system.logic_command import SystemLogicCommand
+from rclone_expand.model import ModelSetting
 
 # 패키지
 from .plugin import logger, package_name
@@ -84,7 +86,7 @@ service_account_file_path = {accounts_dir}/
         except Exception as e: 
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
-    
+
     @staticmethod
     def process_api(sub, req):
         try:
@@ -348,14 +350,6 @@ service_account_file_path = {accounts_dir}/
             return 'fail'
         finally:
             LogicGclone.current_process = None
-
-
-
-
-
-
-
-
 
 
 

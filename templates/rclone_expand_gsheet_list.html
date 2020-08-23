@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+  <form id="form_search" class="form-inline" style="text-align:left">
+    <div class="container-fluid">
+      <div class="row show-grid">
+        <span class="col-md-2">
+          <select id="order" name="order" class="form-control form-control-sm">
+            <option value="desc">최근순</option>
+            <option value="asc">오래된순</option>
+	  </select>
+        </span>
+        <span class="col-md-8">
+	  <input id="search_word" name="search_word" class="form-control form-control-sm w-75" type="text" placeholder="문서제목 or 시트제목" aria-label="Search">
+          <button id="search" class="btn btn-sm btn-outline-success">검색</button>
+  	  <button id="gsheet_modal_btn" class="btn btn-sm btn-outline-success">시트등록</button>
+        </span>
+      </div>
+    </div>
+  </form>
+  <div id='page1'></div>
+<div>
+  {{ macros.m_hr_head_top() }}
+  {{ macros.m_row_start('0') }}
+  {{ macros.m_col(2,  macros.m_strong('ID/등록/갱신시각')) }}
+  {{ macros.m_col(5,  macros.m_strong('문서제목/시트제목')) }}
+  {{ macros.m_col(2,  macros.m_strong('복사/자료건수')) }}
+  {{ macros.m_col(1,  macros.m_strong('스케쥴링')) }}
+  {{ macros.m_col(2,  macros.m_strong('처리기능')) }}
+  {{ macros.m_row_end() }}
+  {{ macros.m_hr_head_bottom() }}
+  <div id="list_div"></div>
+  <div id='page2'></div>
+</div> <!--전체-->
+
+<!-- Modal: 문서검색 및 등록 -->
+<div class="modal fade" id="gsheet_modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="modal_title">GSheet 문서 검색(문서ID)</h4>
+      </div>
+      <div class="modal-body" id="modal_body" style="word-break:break-all;">
+	<form id="gsheet_form" name="gsheet_form">
+	  <div class="input-group col-sm-12">
+		<div class="col-md-9" style="align-items:left; text-align:left;">
+		  <input id="gsheet_doc_id" name="gsheet_doc_id" class="form-control form-control-sm w-100" type="text" placeholder="" aria-label="Search">
+		</div>
+		<div class="col-md-3" style="align-items:left; text-align:left;">
+		  <button id="gsheet_search_btn" class="btn btn-sm btn-outline-success">검색</button>
+		  <button id="modal_reset_btn" class="btn btn-sm btn-outline-success">리셋</button>
+		</div>
+	  </div>
+	    <div class="input_group col-sm-12" id="modal_gsheet_result" width="100%"></div>
+	</form>
+      </div>
+      <div class="modal-footer">
+	<div class="input-group col-sm-12">
+	  <div class="col-sm-10" style="padding-left:20px; padding-top:10px; float:left">
+	    <span id="modal_register_result" width="100%"></span>
+	  </div>
+	  <div class="col-sm-2" style="padding-left:20px; padding-top:10px; float:right;">
+            <button type="button" class="btn btn-default" data-dismiss="modal">닫기</button>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal: 문서검색 및 등록 END -->
+
+<!-- Modal: 시트-작업수정 -->
+{{ macros.m_modal_start('ws_detail_modal', '', 'modal-lg') }}
+  <form id='ws_detail' name='ws_detail'>
+    <input type='hidden' id="sheet_id" name="sheet_id">
+    {{ macros.info_text('ws_doc_title', '제목') }}
+    {{ macros.info_text('ws_doc_id', '문서ID') }}
+    {{ macros.info_text('ws_title', '시트제목') }}
+    {{ macros.info_text('ws_stat', '복사/자료건수') }}
+    {{ macros.setting_checkbox('ws_in_schedule', '스케쥴링에 포함', desc=['On: 스케쥴링 동작시 문서 갱신 및 자동복사.']) }}
+    {{ macros.setting_button([['ws_save_btn', '저장'], ['job_remove_btn', '삭제']]) }}
+  </form>
+  <hr>
+{{ macros.m_modal_end() }}
+<!-- Modal: 시트-작업수정 END -->
+
+
+<script type="text/javascript">
+var package_name = "{{arg['package_name'] }}";
+var sub = "{{arg['sub'] }}";
+var current_data = null;
+var current_page = 1
+
+$(document).ready(function(){
+  request_search('1');
+});
+
+$("#search").click(function(e) {
+  e.preventDefault();
+  request_search('1');
+});
+
+$("body").on('click', '#page', function(e){
+  e.preventDefault();
+  request_search($(this).data('page'));
+});
+
+$("body").on('click', '#gsheet_search_btn', function(e) {
+  e.preventDefault();
+  gsheet_doc_id = document.getElementById('gsheet_doc_id').value;
+  if (gsheet_doc_id.length < 40) {
+    $.notify('<strong>올바른 GSheet 문서ID를 입력해주세요.</strong>', {type: 'warning'});
+    return
+  }
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/search_gsheet',
+    type: "POST", 
+    cache: false,
+    data: {gsheet_doc_id:gsheet_doc_id},
+    dataType: "json",
+    success: function (data) {
+      current_data = data;
+      if (data == '') {
+        $.notify('<strong>검색에 실패하셨습니다.로그를 확인해주세요.</strong>', {type: 'warning'});
+	return
+      } else {
+        str = '';
+        tmp = '';
+
+        for (var i in data) {
+          str += m_row_start();
+          tmp = '<div class="col-md-10" style="align-items:center; text-align:left;">';
+          tmp += '문서제목: <a href="' + data[i].doc_url + '/edit#gid=' + data[i].ws_id + '" target="_blank">';
+          tmp += data[i].doc_title + '</a><br>';
+          tmp += '&nbsp;&nbsp;&nbsp;&nbsp;시트명: ' + data[i].ws_title + '</div>';
+          str += tmp;
+          btn_str = m_button('register_ws_btn', '등록', [{'key':'index', 'value':i}]);
+          str += '<div class="col-md-2" style="align-items:center; text-align:left;">';
+          str += btn_str;
+          str += '</div><br>';
+          str += m_row_end();
+          if (i != data.length -1) str += m_hr(0);
+        }
+      }
+      document.getElementById("modal_gsheet_result").innerHTML = str;
+    }
+  });
+});
+
+$("body").on('click', '#gsheet_copy_btn', function(e){
+  e.preventDefault();
+  index = $(this).data('index');
+  gcstring = current_data[index].gcstring
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/copy',
+    type: "POST", 
+    cache: false,
+    data: {gcstring:gcstring},
+    dataType: "json",
+    success: function (data) {
+    }
+  });
+});
+
+
+$("body").on('click', '#gsheet_modal_btn', function(e) {
+  e.preventDefault();
+  $("#gsheet_modal").modal();
+});
+
+$("#gsheet_modal").on('click', '#register_ws_btn', function(e){
+  e.preventDefault();
+  index = $(this).data('index');
+  info = current_data[index];
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/register_gsheet',
+    type: "POST", 
+    cache: false,
+    data: {doc_id:info.doc_id, doc_url:info.doc_url, doc_title:info.doc_title, ws_id:info.ws_id, ws_title:info.ws_title},
+    dataType: "json",
+    success: function (data) {
+      str = data.data + '<br>(문서ID: ' + info.doc_id + ', 시트ID: ' + info.ws_id + ')';
+      document.getElementById("modal_register_result").innerHTML = str;
+    }
+  });
+});
+
+$("#gsheet_modal").on('click', '#modal_reset_btn', function(e){
+  e.preventDefault();
+  document.getElementById("modal_gsheet_result").innerHTML = '';
+  document.getElementById("modal_register_result").innerHTML = '';
+  document.getElementById("gsheet_doc_id").value = '';
+});
+
+$("body").on('click', '#ws_one_execute_btn', function(e){
+  e.preventDefault();
+  page = current_page;
+  sheet_id = $(this).data('id');
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/one_execute',
+    type: "POST", 
+    cache: false,
+    data: {id:sheet_id},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>성공: '+data.data+'</strong>', {type: 'success'});
+  	request_search(page);
+      } else {
+        $.notify('<strong>실패: ' +data.data+ '</strong>', {type: 'warning'});
+        return
+      }
+    }
+  });
+});
+
+
+
+function request_search(page) {
+  var formData = get_formdata('#form_search')
+  formData += '&page=' + page;
+  current_page = page
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/ws_list',
+    type: "POST", 
+    cache: false,
+    data: formData,
+    dataType: "json",
+    success: function (data) {
+      window.scrollTo(0,0);
+      make_list(data.list)
+      make_page_html(data.paging)
+    }
+  });
+}
+
+
+function make_list(data) {
+  current_data = data;
+  str = '';
+  tmp = '';
+  for (i in data) {
+    str += m_row_start();
+    tmp = data[i].id + '<br>';
+    tmp += data[i].created_time + '<br>';
+    if (data[i].updated_time) {
+      tmp += data[i].updated_time;
+    } else {
+      tmp += '-'
+    }
+    str += m_col(2, tmp)
+  
+    tmp = '<a href="' + data[i].doc_url + '/edit#gid=' + data[i].ws_id + '" target="_blank">';
+    tmp += data[i].doc_title + '</a><br>';
+    tmp += '&nbsp;&nbsp;&nbsp;&nbsp;' + data[i].ws_title;
+    str += m_col(5, tmp);
+  
+    tmp = data[i].copy_count + '/<br>';
+    tmp += data[i].total_count;
+    str += m_col(2, tmp);
+    if (data[i].in_schedule) {
+      str += m_col(1, '포함')
+    } else {
+      str += m_col(1, '미포함')
+    }
+    btn_str = m_button('ws_modify_btn', '시트수정', [{'key':'id', 'value':data[i].id}]);
+    btn_str += m_button('ws_one_execute_btn', '수동실행', [{'key':'id', 'value':data[i].id}]);
+    btn_str += '<br>'
+    btn_str += m_button('load_item_btn', '목록갱신', [{'key':'id', 'value':data[i].id}]);
+    btn_str += m_button('item_list_btn', '목록보기', [{'key':'id', 'value':data[i].id}]);
+    str += m_col(2, btn_str)
+    
+    str += m_row_end();
+    if (i != data.length -1) str += m_hr();
+  }
+  document.getElementById("list_div").innerHTML = str;
+}
+
+
+$("body").on('click', '#ws_modify_btn', function(e){
+  e.preventDefault();
+  id = $(this).data('id');
+  item = get_data(id);
+  document.getElementById("sheet_id").value = id;
+  document.getElementById("ws_detail_modal_title").innerHTML = 'ID : ' + id;
+  document.getElementById("ws_doc_title").innerHTML = item.doc_title;
+  document.getElementById("ws_doc_id").innerHTML = item.doc_id;
+  document.getElementById("ws_title").innerHTML = item.ws_title;
+  stat = item.copy_count + '/' + item.total_count
+  document.getElementById("ws_stat").innerHTML = stat;
+  if (item.in_schedule) {
+    document.getElementById("ws_in_schedule").value = 'on';
+    $('#ws_in_schedule').bootstrapToggle('on')
+  } else {
+    $('#ws_in_schedule').bootstrapToggle('off')
+  }
+  $("#ws_detail_modal").modal();
+});
+
+
+function get_data(id) {
+  for(i in current_data) {
+    if (current_data[i].id == id) {
+      return current_data[i];
+    }
+  }
+}
+
+$("body").on('click', '#load_item_btn', function(e){
+  e.preventDefault();
+  id = $(this).data('id');
+  item = get_data(id);
+
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/load_items',
+    type: "POST", 
+    cache: false,
+    data: {id:id},
+    dataType: "json",
+    success: function (data) {
+      if (data == '') {
+        $.notify('<strong>검색에 실패하셨습니다.</strong>', {type: 'warning'});
+        return
+      } else {
+	location.reload();
+      }
+    }
+  });
+});
+
+$("body").on('click', '#item_list_btn', function(e){
+  e.preventDefault();
+  sheet_id = $(this).data('id');
+  $(location).attr('href', '/rclone_expand/gsheet/item_list?sheet_id=' + sheet_id)
+});
+
+$('#ws_detail_modal').on('click', '#ws_save_btn', function (e) {
+  e.preventDefault();
+  var formData = get_formdata('#ws_detail');
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/save_wsinfo',
+    type: "POST", 
+    cache: false,
+    data: formData,
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>저장하였습니다.</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>저장실패</strong>', {type: 'warning'});
+      }
+      $("#ws_detail_modal").modal('hide');
+      request_search(current_page);
+    }
+  });
+})
+
+
+$('#gsheet_modal').on('hidden.bs.modal', function () {
+  location.reload();
+})
+
+</script>    
+{% endblock %}

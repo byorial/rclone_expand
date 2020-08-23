@@ -9,15 +9,15 @@ import platform
 # third-party
 
 # sjva 공용
-from framework import db, scheduler, path_app_root, path_data
+from framework import app, db, scheduler, path_app_root, path_data
 from framework.job import Job
 from framework.util import Util
 
 # 패키지
 from .plugin import logger, package_name
 from .model import ModelSetting
+from .logic_gsheet import LogicGSheet
 #########################################################
-
 
 class Logic(object):
     db_default = { 
@@ -31,6 +31,13 @@ class Logic(object):
         'gclone_fix_option' : '--log-level INFO --stats 1s',
         'gclone_user_option' : '--drive-server-side-across-configs --tpslimit 3 --transfers 3 --create-empty-src-dirs --ignore-existing --size-only --disable ListR',
         'gclone_default_folderid' : '',
+        # added by orial for gsheet
+        'gsheet_auto_start': 'False',
+        'gsheet_interval': '60',
+        'use_user_setting': 'True',
+        'category_rules': u'영화/국내\n드라마/국내',
+        'keyword_rules': u'',
+        'user_copy_dest_rules': u'',
     }
 
     @staticmethod
@@ -65,6 +72,8 @@ class Logic(object):
             tmp = os.path.join(os.path.dirname(__file__), 'bin')
             if os.path.exists(tmp):
                 os.system('chmod 777 -R %s' % tmp)
+            if ModelSetting.query.filter_by(key='gsheet_auto_start').first().value == 'True':
+                Logic.scheduler_start()
         except Exception as e: 
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
@@ -77,9 +86,39 @@ class Logic(object):
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
+    @staticmethod
+    def scheduler_start():
+        try:
+            job = Job(package_name, "rclone_expand_gsheet", ModelSetting.get('gsheet_interval'), Logic.scheduler_function, u"RCloneExpend for GSheet", False)
+            scheduler.add_job_instance(job)
+        except Exception as e: 
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    
+    @staticmethod
+    def scheduler_stop():
+        try:
+            scheduler.remove_job(package_name)
+        except Exception as e: 
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+
+    @staticmethod
+    def scheduler_function():
+        try:
+            if app.config['config']['use_celery']:
+                result = LogicGSheet.scheduler_function.apply_async()
+                result.get()
+            else:
+                LogicGSheet.scheduler_function()
+        except Exception as e: 
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
 
     @staticmethod
     def migration():
+        LogicGSheet.ws_ir_init()
         pass
 
     ##################################################################################

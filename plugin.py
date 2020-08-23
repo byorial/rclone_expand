@@ -102,6 +102,7 @@ def second_menu(sub, sub2):
     try:
         arg = ModelSetting.to_dict()
         arg['sub'] = sub
+        logger.debug('sub: {sub}, sub2: {sub2}'.format(sub=sub, sub2=sub2))
         if sub == 'autorclone':
             if sub2 == 'setting':
                 arg['autorclone_credentials_status'] = os.path.exists(ModelSetting.get('path_credentials'))
@@ -124,11 +125,8 @@ def second_menu(sub, sub2):
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
         elif sub == 'gsheet':
             if sub2 == 'setting':
-                setting_list = db.session.query(ModelSetting).all()
-                arg = Util.db_list_to_dict(setting_list)
                 arg['scheduler'] = str(scheduler.is_include("rclone_expand_gsheet"))
                 arg['is_running'] = str(scheduler.is_running("rclone_expand_gsheet"))
-
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)
             elif sub2 == 'list':
                 return render_template('{package_name}_{sub}_{sub2}.html'.format(package_name=package_name, sub=sub, sub2=sub2), arg=arg)

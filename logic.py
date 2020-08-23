@@ -119,6 +119,7 @@ class Logic(object):
     @staticmethod
     def migration():
         LogicGSheet.ws_ir_init()
+        pass
 
     ##################################################################################
 

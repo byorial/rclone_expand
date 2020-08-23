@@ -22,7 +22,6 @@
     {{ macros.setting_input_textarea('category_rules', '자동다운조건-분류', desc=['분류명, 하위category *지원, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
     {{ macros.setting_input_textarea('except_category_rules', '자동다운-제외분류', desc=['자동다운로드시 제외할 분류명','분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['except_category_rules'], row='3') }}
     {{ macros.m_tab_content_end() }}
-    <!-- 기타 -->
     {{ macros.m_tab_content_start('action', false) }}
       {{ macros.setting_button([['all_reset_db_btn','전체삭제']], left='전체삭제', desc='등록된 모든 워크시트와 아이템목록을 삭제합니다.') }}
       {{ macros.setting_button([['all_ws_reset_db_btn','워크시트삭제']], desc='등록된 모든 워크시트를 삭제합니다.', left='시트전체삭제') }}
@@ -31,6 +30,7 @@
       {{ macros.setting_button([['no_item_reset_db_btn','불량아이템삭제']], desc='파일건수 0개, 사이즈 0Bytes인 아이템을 삭제합니다.', left='정보불량아이템삭제' ) }}
     {{ macros.m_tab_content_end() }}
   </div><!--tab-content-->
+  </form>
 </div> <!--전체-->
 
 <script type="text/javascript">
@@ -39,7 +39,6 @@ var sub = "{{arg['sub'] }}";
 
 $(document).ready(function(){
 });
-
 
 $("body").on('click', '#all_reset_db_btn', function(e){
   e.preventDefault();

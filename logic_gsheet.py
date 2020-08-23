@@ -85,17 +85,6 @@ class LogicGSheet(object):
                 wsinfo = req.form
                 ret = LogicGSheet.register_gsheet(wsinfo)
                 return jsonify(ret)
-            elif sub == 'delete_ws':
-                logger.debug(req.form)
-                id = int(req.form['id'])
-	    	entity = WSModelItem.get(id)
-		if entity is None:
-                    ret = {'ret':False, 'data':'항목을 찾을 수 없습니다.'}
-                    return jsonify(ret)
-
-                WSModelItem.delete(entity.id)
-                ret = {'ret': True, 'data':'Success'}
-                return jsonify(ret)
             elif sub == 'ws_list':
                 ret = WSModelItem.ws_list(req)
                 return jsonify(ret)
@@ -114,6 +103,10 @@ class LogicGSheet(object):
             elif sub == 'save_wsinfo':
                 logger.debug(req.form)
                 ret = LogicGSheet.save_wsinfo(req.form)
+                return jsonify(ret)
+            elif sub == 'delete_wsinfo':
+                logger.debug(req.form)
+                ret = LogicGSheet.delete_wsinfo(req.form)
                 return jsonify(ret)
             elif sub == 'item_list':
                 ret = ListModelItem.item_list(req)
@@ -285,6 +278,20 @@ class LogicGSheet(object):
             logger.error(traceback.format_exc())
 
     @staticmethod
+    def delete_wsinfo(req):
+        try:
+            sheet_id = int(req['sheet_id'])
+            wsentity = WSModelItem.get(sheet_id)
+            if wsentity is None:
+                return {'ret':False, 'data':'유효한 아이템이 없습니다'}
+            wsentity.delete(wsentity.id)
+            return {'ret':True, 'data':'삭제하였습니다.'}
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+            return {'ret':False, 'data':'Exception'}
+
+    @staticmethod
     def save_wsinfo(req):
         try:
             sheet_id = int(req['sheet_id'])
@@ -299,6 +306,7 @@ class LogicGSheet(object):
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
+            return {'ret':False, 'data':'Exception'}
 
     @staticmethod
     def get_size(id):
@@ -377,7 +385,6 @@ class LogicGSheet(object):
             succeed = 0
             failed = 0
 
-
             for entity in ListModelItem.get_schedule_target_items(sheet_id):
                 logger.info('copy target: %s, %s, %s, %s', 
                         entity.title2 if entity.title2 != u"" else entity.title,
@@ -392,15 +399,15 @@ class LogicGSheet(object):
 
             total = succeed + failed
             logger.info('scheduled_copy: total(%d), succeed(%d), failed(%d)', total, succeed, failed)
-
+            ret = {'ret':True, 'data':'copy result: total({total}), succeed({succeed}), failed({failed})'.format(total=total,succeed=succeed,failed=failed) }
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
+            ret = {'ret':False, 'data':'Exception'}
         finally:
             wsentity.is_running = False
             wsentity.save()
-            pass
-
+            return ret
 
     @staticmethod
     def update_size(entity_id):

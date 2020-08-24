@@ -15,10 +15,17 @@ import shutil
 
 # third-party
 from flask import Blueprint, request, Response, send_file, render_template, redirect, jsonify
-from oauth2client.service_account import ServiceAccountCredentials
+try:
+    from oauth2client.service_account import ServiceAccountCredentials
+except ImportError:
+    os.system('pip install --upgrade pip')
+    os.system('pip install oauth2client')
+    from oauth2client.service_account import ServiceAccountCredentials
+
 try:
     import gspread
 except ImportError:
+    os.system('pip install --upgrade pip')
     os.system('pip install gspread')
     import gspread
 

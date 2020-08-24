@@ -15,19 +15,7 @@ import shutil
 
 # third-party
 from flask import Blueprint, request, Response, send_file, render_template, redirect, jsonify
-try:
-    from oauth2client.service_account import ServiceAccountCredentials
-except ImportError:
-    os.system('pip install --upgrade pip')
-    os.system('pip install oauth2client')
-    from oauth2client.service_account import ServiceAccountCredentials
 
-try:
-    import gspread
-except ImportError:
-    os.system('pip install --upgrade pip')
-    os.system('pip install gspread')
-    import gspread
 
 # sjva 공용
 from framework import app, db, scheduler, path_app_root, celery, path_data, socketio
@@ -45,6 +33,19 @@ from .model import ModelSetting, WSModelItem, ListModelItem
 from .logic_gclone import LogicGclone
 
 #########################################################
+
+def load_gspread():
+    try:
+        from oauth2client.service_account import ServiceAccountCredentials
+    except ImportError:
+        os.system('pip install oauth2client')
+        from oauth2client.service_account import ServiceAccountCredentials
+
+    try:
+        import gspread
+    except ImportError:
+        os.system('pip install gspread')
+        import gspread
 
 
 class LogicGSheet(object):
@@ -163,7 +164,7 @@ class LogicGSheet(object):
             if doc_id.startswith(u'http'): doc_url = doc_id
             else: doc_url = 'https://docs.google.com/spreadsheets/d/{doc_id}'.format(doc_id=doc_id)
             logger.debug('url(%s)', doc_url)
-
+            load_gspread()
             credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
             gsp = gspread.authorize(credentials)
             doc = gsp.open_by_url(doc_url)
@@ -228,7 +229,7 @@ class LogicGSheet(object):
                 return ret
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             doc_url = wsentity.doc_url
-
+            load_gspread()
             credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
             gsp = gspread.authorize(credentials)
             doc = gsp.open_by_url(doc_url)

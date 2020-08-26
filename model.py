@@ -435,15 +435,15 @@ class ListModelItem(db.Model):
             page = 1
             page_size = 30
             search = ''
-            if 'page' in req.form:
-                page = int(req.form['page'])
-            if 'search_word' in req.form:
-                search = req.form['search_word'] 
-            if 'option' in req.form:
-                option = req.form['option']
+            
+            if 'sheet_id' in req.form: sheet_id = req.form['sheet_id']
+            if 'page' in req.form: page = int(req.form['page'])
+            if 'search_word' in req.form: search = req.form['search_word'] 
+            if 'option' in req.form: option = req.form['option']
+            if 'copied' in req.form: copied = req.form['copied']
             order = req.form['order'] if 'order' in req.form else 'desc'
 
-            query = ListModelItem.make_query(search=search, option=option, order=order)
+            query = ListModelItem.make_query(sheet_id=sheet_id, search=search, option=option, copied=copied, order=order)
             if query is None: return ret
 
             count = query.count()
@@ -459,16 +459,21 @@ class ListModelItem(db.Model):
             logger.error(traceback.format_exc())
 
     @staticmethod
-    def make_query(search='', option='', order='desc'):
+    def make_query(sheet_id='', search='', option='', copied="all", order='desc'):
         query = db.session.query(ListModelItem)
+        if sheet_id != '' and sheet_id != 'all':
+            try:
+                sheet_id = int(sheet_id)
+                query = query.filter(ListModelItem.sheet_id==sheet_id)
+            except ValueError, e:
+                logger.error('Invalid sheet_id({sheet_id})'.format(sheet_id=sheet_id))
+                return None
+
+        if copied == 'true': query = query.filter(ListModelItem.copy_count > 0)
+        elif copied == 'false': query = query.filter(ListModelItem.copy_count == 0)
+	
         if search != '':
-            if option == 'sheet_id':
-                try:
-                    sheet_id = int(search)
-                    query = query.filter_by(sheet_id=sheet_id)
-                except ValueError, e:
-                    return None
-            elif option == 'folder_id':
+            if option == 'folder_id':
                 query = query.filter(ListModelItem.folder_id.like('%'+search+'%'))
                 return query
             elif option == 'category':
@@ -477,7 +482,7 @@ class ListModelItem(db.Model):
                 conditions = []
                 conditions.append(ListModelItem.title.like('%'+search+'%'))
                 conditions.append(ListModelItem.title2.like('%'+search+'%'))
-                query = query.filter(or_(conditions))
+                query = query.filter(or_(*conditions))
 
         if order == 'desc':
             query = query.order_by(desc(ListModelItem.id))

@@ -5,21 +5,28 @@
   <form id="form_search" class="form-inline" style="text-align:left">
     <div class="container-fluid">
       <div class="row show-grid">
-        <span class="col-md-2">
+        <span class="col-md-3">
+          <input id="sheet_id" name="sheet_id" class="form-control form-control-sm w-50" type="text" placeholder="all" aria-label="시트ID">
           <select id="order" name="order" class="form-control form-control-sm">
             <option value="desc">최근순</option>
             <option value="asc">오래된순</option>
 	  </select>
         </span>
-	<span class="col-md-2">
+	<span class="col-md-1">
+          <select id="copied" name="copied" class="form-control form-control-sm">
+            <option value="all">전체</option>
+            <option value="true">복사함</option>
+            <option value="false">복사전</option>
+	  </select>
+        </span>
+	<span class="col-md-1">
           <select id="option" name="option" class="form-control form-control-sm">
             <option value="title">제목</option>
-            <option value="sheet_id">시트ID</option>
             <option value="folder_id">폴더ID</option>
             <option value="category">분류</option>
 	  </select>
         </span>
-        <span class="col-md-8">
+        <span class="col-md-7">
 	  <input id="search_word" name="search_word" class="form-control form-control-sm w-75" type="text" placeholder="검색기준에 따라 검색어를 입력하세요." aria-label="Search">
           <button id="search" class="btn btn-sm btn-outline-success">검색</button>
   	  <button id="reset_btn" class="btn btn-sm btn-outline-success">리셋</button>
@@ -51,10 +58,10 @@ var curr_page = 1;
 $(document).ready(function(){
   var sheet_id = "{{arg['sheet_id'] }}";
   if ("{{arg['sheet_id']}}" != "None") {
-    document.getElementById("option").value = 'sheet_id';
-    document.getElementById("search_word").value = "{{arg['sheet_id']}}";
+    document.getElementById("sheet_id").value = sheet_id;
     document.getElementById("search").click();
   } else {
+    document.getElementById("sheet_id").value = "all";
     request_search('1');
   }
 });

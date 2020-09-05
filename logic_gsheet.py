@@ -440,6 +440,19 @@ class LogicGSheet(object):
                 return ret
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             doc_url = wsentity.doc_url
+
+            try:
+                from oauth2client.service_account import ServiceAccountCredentials
+            except ImportError:
+                os.system('pip install oauth2client')
+                from oauth2client.service_account import ServiceAccountCredentials
+
+            try:
+                import gspread
+            except ImportError:
+                os.system('pip install gspread')
+                import gspread
+
             credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
             gsp = gspread.authorize(credentials)
             doc = gsp.open_by_url(doc_url)

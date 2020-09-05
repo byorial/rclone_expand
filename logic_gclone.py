@@ -120,6 +120,15 @@ service_account_file_path = {accounts_dir}/
         r'INFO\s*\:\s*((?P<folder>.*)\/)?(?P<name>.*?)\:\s*(?P<status>.*)'
     ]
 
+    fclone_trans_regexes = [
+        r'Transferred:\s*(?P<current>(\d.*?))\s*\/\s*(?P<total>\d.*?),\s*(?P<trans_percent>\-|\d.*?)(%)?,\s*(?P<bps>\d.*?Bytes/s)?,\s*ETA\s*((?P<eta1>\-)?|((?P<rt_hour>\d+)h)?((?P<rt_min>\d+)m)?((?P<rt_sec>.*?)s)?)$',
+        r'Transferred:\s*(?P<file_1>(\d.*?))\s*\/\s*(?P<file_2>\d.*?),\s*(?P<file_percent>\-|\d.*?)(%)?,\s*(?P<fps>\d.*?Files/s)?,\s*ETA\s*((?P<eta1>\-)?|((?P<rt_hour>\d+)h)?((?P<rt_min>\d+)m)?((?P<rt_sec>.*?)s)?)$',
+        r'Errors\:\s*(?P<error>\d+)',
+        r'Checks\:\s*(?P<check_1>\d+)\s\/\s(?P<check_2>\d+)\,\s*(?P<check_percent>\d+)?\-?',
+        r'Elapsed\stime\:\s*((?P<r_hour>\d+)h)*((?P<r_min>\d+)m)*((?P<r_sec>.*?)s)*',
+        r'\s*\*\s((?P<folder>.*)\/)?(?P<name>.*?)\:\s*(?P<percent>\d+)\%\s*\/(?P<size>\d.*?)\,\s*(?P<speed>\d.*?)\,\s*((?P<rt_hour>\d+)h)*((?P<rt_min>\d+)m)*((?P<rt_sec>.*?)s)*', 
+        r'INFO\s*\:\s*((?P<folder>.*)\/)?(?P<name>.*?)\:\s*(?P<status>.*)'
+    ]
 
 
     @staticmethod
@@ -213,7 +222,13 @@ service_account_file_path = {accounts_dir}/
                 '--config', ModelSetting.get('gclone_config_path'),
                 'copy', source, target
             ]
-            command += ModelSetting.get_list('gclone_fix_option', ' ')
+            is_fclone = LogicGclone.is_fclone()
+            # fclone의 경우 log-level 강제설정
+            if is_fclone:
+                command += ['--stats','1s','--log-level','NOTICE','--stats-log-level','NOTICE']
+            else:
+                command += ModelSetting.get_list('gclone_fix_option', ' ')
+
             command += ModelSetting.get_list('gclone_user_option', ' ')
             logger.debug(command)             
             LogicGclone.current_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
@@ -223,7 +238,10 @@ service_account_file_path = {accounts_dir}/
             LogicGclone.current_data['files'] = []
 
             LogicGclone.trans_callback('start')
-            LogicGclone.current_log_thread = threading.Thread(target=LogicGclone.log_thread_fuction, args=())
+            if is_fclone:
+                LogicGclone.current_log_thread = threading.Thread(target=LogicGclone.fclone_log_thread_fuction, args=())
+            else: 
+                LogicGclone.current_log_thread = threading.Thread(target=LogicGclone.log_thread_fuction, args=())
             LogicGclone.current_log_thread.start()
             logger.debug('normally process wait()')
             ret = LogicGclone.current_process.wait()
@@ -334,6 +352,97 @@ service_account_file_path = {accounts_dir}/
         LogicGclone.trans_callback('status', ts)
 
     @staticmethod
+    def fclone_log_thread_fuction():
+        with LogicGclone.current_process.stdout:
+            ts = None
+            for line in iter(LogicGclone.current_process.stdout.readline, b''):
+                line = line.strip()
+                try:
+                    try:
+                        line = line.decode('utf-8')
+                    except Exception as e: 
+                        try:
+                            line = line.decode('cp949')
+                        except Exception as e: 
+                            pass
+                    if line == '' or  line.startswith('Checking'):
+                        continue
+                    if line.endswith('INFO  :'):
+                        continue
+                    if line.startswith('Deleted:'):
+                        continue
+                    if line.startswith('Transferring:'):
+                        ts.files = []
+                        continue
+                    match = re.compile(LogicGclone.fclone_trans_regexes[0]).search(line)
+                    if match:
+                        #logger.debug(match.groupdict())
+                        if ts is not None:
+                            LogicGclone.trans_callback('status', ts)
+                        ts = TransStatus()
+                        ts.trans_data_current = match.group('current')
+                        ts.trans_total_size = match.group('total')
+                        ts.trans_percent = match.group('trans_percent') if 'trans_percent' in match.groupdict() else '0'
+                        ts.trans_speed = match.group('bps')
+                        ts.rt_hour = match.group('rt_hour') if 'rt_hour' in match.groupdict() else '0'
+                        ts.rt_min = match.group('rt_min') if 'rt_min' in match.groupdict() else '0'
+                        ts.rt_sec = match.group('rt_sec') if 'rt_sec' in match.groupdict() else '0'
+                        continue
+                    match = re.compile(LogicGclone.fclone_trans_regexes[1]).search(line)
+                    if match:
+                        #logger.debug(match.groupdict())
+                        #ts.trans_speed = ' / '+ match.group('fps') # not use
+                        ts.file_1 = match.group('file_1')
+                        ts.file_2 = match.group('file_2')
+                        ts.file_percent = match.group('file_percent') if 'file_percent' in match.groupdict() else '0'
+                        ts.check_1 = ts.file_1
+                        ts.check_2 = ts.file_2
+                        ts.check_percent = ts.file_percent
+                        continue
+                    match = re.compile(LogicGclone.fclone_trans_regexes[2]).search(line)
+                    if match:
+                        ts.error = match.group('error')
+                        continue
+                    match = re.compile(LogicGclone.fclone_trans_regexes[4]).search(line)
+                    if match:
+                        ts.r_hour = match.group('r_hour') if 'r_hour' in match.groupdict() else '0'
+                        ts.r_min = match.group('r_min') if 'r_min' in match.groupdict() else '0'
+                        ts.r_sec = match.group('r_sec') if 'r_sec' in match.groupdict() else '0'
+                        continue
+
+                    # 로그를 많이 쏘면 SJVA가 뻗음
+                    """
+                    if line.find('INFO :') == -1:
+                        LogicGclone.current_data['log'].append(line)
+                        if len(LogicGclone.current_data['log']) == 1000:
+                            LogicGclone.current_data['log'] = LogicGclone.current_data['log'][100:]
+                        LogicGclone.trans_callback('log')
+                    """
+
+                    # 무시
+                    match = re.compile(LogicGclone.fclone_trans_regexes[5]).search(line)
+                    if match: 
+                        #logger.debug('>>>> %s', line)
+                        continue
+                    match = re.compile(LogicGclone.fclone_trans_regexes[6]).search(line)
+                    # 발생안함
+                    if match:
+                        LogicGclone.trans_callback('files', FileFinished(match))
+                        continue
+
+                    #logger.debug('NOT PROCESS : %s', line)       
+                except Exception as e:
+                    logger.error('Exception:%s', e)
+                    logger.error(traceback.format_exc())
+            logger.debug('rclone log thread end')
+        LogicGclone.trans_callback('status', ts)
+
+
+
+
+
+
+    @staticmethod
     def kill():
         try:
             if LogicGclone.current_process is not None and LogicGclone.current_process.poll() is None:
@@ -352,6 +461,19 @@ service_account_file_path = {accounts_dir}/
             LogicGclone.current_process = None
 
 
+    @staticmethod
+    def is_fclone():
+        try:
+            command = [ModelSetting.get('gclone_path'), 'version']
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+            ret = []
+            with process.stdout:
+                for line in iter(process.stdout.readline, b''):
+                    if line.find('fclone') != -1: return True
+            return False
+        except Exception as e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
 
 
 

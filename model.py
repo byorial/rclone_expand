@@ -462,13 +462,13 @@ class ListModelItem(db.Model):
 
             copy_count_limit = ModelSetting.get_int('copy_count_limit')
             if copy_count_limit != 0:
-                query = query.filter_by(copy_count < copy_count_limit)
+                query = query.filter(ListModelItem.copy_count < copy_count_limit)
 
             if ModelSetting.get_bool('copy_delay_use'):
                 copy_delay = ModelSetting.get_int('copy_delay')
                 if copy_delay != 0:
                     target_time = datetime.now() - timedelta(minutes=copy_delay)
-                    query = query.filter_by(updated_time < target_time)
+                    query = query.filter(ListModelItem.updated_time < target_time)
 
             categories = ModelSetting.get_list('category_rules', '\n')
             if len(categories) > 0:

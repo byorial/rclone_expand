@@ -335,6 +335,9 @@ class ListModelItem(db.Model):
     obj_num = db.Column(db.Integer)
     str_size = db.Column(db.String)
     copied_time = db.Column(db.DateTime)
+    byte_size = db.Column(db.Integer)
+
+    updated_time = db.Column(db.DateTime)
 
     def __init__(self, info):
         self.created_time = datetime.now()
@@ -347,6 +350,8 @@ class ListModelItem(db.Model):
         self.copy_count = 0
         self.obj_num = info['obj_num']
         self.str_size = info['str_size']
+        self.byte_size = info['byte_size']
+        self.updated_time = datetime.now()
 
     def __repr__(self):
         return repr(self.as_dict())
@@ -355,6 +360,7 @@ class ListModelItem(db.Model):
         ret = {x.name: getattr(self, x.name) for x in self.__table__.columns}
         ret['created_time'] = self.created_time.strftime('%Y-%m-%d %H:%M:%S') 
         ret['copied_time'] = self.copied_time.strftime('%Y-%m-%d %H:%M:%S') if self.copied_time is not None else None
+        ret['updated_time'] = self.updated_time.strftime('%Y-%m-%d %H:%M:%S') if self.updated_time is not None else None
 
         return ret
 
@@ -376,13 +382,16 @@ class ListModelItem(db.Model):
             entry.category = unicode(d['category'])
             entry.copy_count = d['copy_count']
             entry.obj_num = d['obj_num']
-            entry.category = unicode(d['str_size'])
+            entry.category = unicode(d['category'])
+            entry.str_size = unicode(d['str_size'])
+            entry.byte_size = d['str_size']
 
             db.session.add(entity)
             db.session.commit()
         except Exception as e:
             logger.error(d)
             logger.error('Exception:%s', e)
+
 
     @staticmethod
     def create(info):
@@ -396,6 +405,44 @@ class ListModelItem(db.Model):
         except Exception, e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
+
+ 
+    @staticmethod
+    def update_with_info(id, info):
+        try:
+            updated = False
+            e = ListModelItem.get(id)
+            if e is None:
+                return None
+            if e.title != info['title']:
+                e.title = info['title']
+                updated = True
+            if e.title2 != info['title2']:
+                e.title2 = info['title2']
+                updated = True
+            if e.category != info['category']:
+                e.category = info['category']
+                updated = True
+            if e.obj_num != info['obj_num']:
+                e.obj_num = info['obj_num']
+                updated = True
+            if e.str_size != info['str_size']:
+                e.str_size = info['str_size']
+                updated = True
+            if e.byte_size != info['byte_size']:
+                e.byte_size = info['byte_size']
+                updated = True
+
+            if updated:
+                e.updated_time = datetime.now()
+                e.save()
+                return True
+            return False
+
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return False
 
     @staticmethod
     def get_entity_by_folder_id(folder_id):
@@ -412,7 +459,16 @@ class ListModelItem(db.Model):
     def get_schedule_target_items(sheet_id):
         try:
             query = db.session.query(ListModelItem).filter_by(sheet_id=sheet_id)
-            query = query.filter_by(copy_count = 0)
+
+            copy_count_limit = ModelSetting.get_int('copy_count_limit')
+            if copy_count_limit != 0:
+                query = query.filter_by(copy_count < copy_count_limit)
+
+            if ModelSetting.get_bool('copy_delay_use'):
+                copy_delay = ModelSetting.get_int('copy_delay')
+                if copy_delay != 0:
+                    target_time = datetime.now() - timedelta(minutes=copy_delay)
+                    query = query.filter_by(updated_time < target_time)
 
             categories = ModelSetting.get_list('category_rules', '\n')
             if len(categories) > 0:
@@ -486,6 +542,14 @@ class ListModelItem(db.Model):
 
         if order == 'desc':
             query = query.order_by(desc(ListModelItem.id))
+        elif order == 'up_desc':
+            query = query.order_by(desc(ListModelItem.updated_time))
+        elif order == 'up_asc':
+            query = query.order_by(ListModelItem.updated_time)
+        elif order == 'size_desc':
+            query = query.order_by(desc(ListModelItem.byte_size))
+        elif order == 'size_asc':
+            query = query.order_by(ListModelItem.byte_size)
         else:
             query = query.order_by(ListModelItem.id)
 

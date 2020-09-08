@@ -111,6 +111,9 @@ class LogicGSheet(object):
                 reqtype = req.form['type']
                 ret = LogicGSheet.reset_db(reqtype)
                 return jsonify(ret)
+            elif sub == 'size_migration':
+                ret = LogicGSheet.size_migration()
+                return jsonify(ret)
 
         except Exception as e: 
             logger.error('Exception:%s', e)
@@ -244,6 +247,7 @@ class LogicGSheet(object):
             ws = LogicGSheet.get_worksheet(doc, ws_id)
             count = 0
             scount = 0
+            ucount = 0
             for r in ws.get_all_records(head=1):
                 try:
                     # 폴더ID, 분류가 없는 경우 제외
@@ -254,11 +258,32 @@ class LogicGSheet(object):
                     # 파일수, 사이즈가 없는 경우 예외처리
                     if r[u'파일수'] == '': obj_num = 0
                     else: obj_num = int(r[u'파일수'])
-                    if r[u'사이즈'] == '': str_size = '-'
-                    else: str_size = r[u'사이즈']
+
+                    if r[u'사이즈'] == '':
+                        str_size = '-'
+                        byte_size = 0
+                    else:
+                        str_size = r[u'사이즈']
+                        try:
+                            if type(str_size) == int or type(str_size) == long:
+                                byte_size = str_size
+                                str_size = LogicGSheet.get_str_size(byte_size)
+                            elif type(str_size) == unicode:
+                                try:
+                                    byte_size = LogicGSheet.get_byte_size(str_size)
+                                    if str_size.find('Bytes') == -1:
+                                        str_size = LogicGSheet.get_str_size(byte_size)
+                                except ValueError:
+                                    str_size = '-'
+                                    byte_size = 0
+                            else:
+                                byte_size = LogicGSheet.get_byte_size(str_size)
+                        except:
+                            str_size = '-'
+                            byte_size = 0
 
                     # 파일수0, 사이즈 0Bytes인경우 스킵
-                    if obj_num == 0 and str_size == u'0 Bytes':
+                    if obj_num == 0 and (str_size == u'0 Bytes' or byte_size == 0) and str_size != '-':
                         scount += 1
                         continue
 
@@ -268,14 +293,21 @@ class LogicGSheet(object):
                             'category':r[u'분류'], 
                             'title2':r[u'제목 매핑'],
                             'obj_num':obj_num,
-                            'str_size':str_size}
+                            'str_size':str_size,
+                            'byte_size':byte_size}
 
-                    entity = ListModelItem.create(info)
-                    if entity is None:
-                        #logger.debug('already exist item(folder_id:%s)', info['folder_id'])
-                        scount += 1
-                        continue
-                    count += 1
+                    entity = ListModelItem.get_entity_by_folder_id(info['folder_id'])
+                    if entity is not None:
+                        updated = ListModelItem.update_with_info(entity.id, info)
+                        if updated: ucount += 1
+                        else: scount += 1
+                    else:
+                        entity = ListModelItem.create(info)
+                        if entity is None:
+                            #logger.debug('already exist item(folder_id:%s)', info['folder_id'])
+                            scount += 1
+                            continue
+                        count += 1
 
                 except KeyError:
                     logger.error('failed to get item info')
@@ -285,8 +317,8 @@ class LogicGSheet(object):
             wsentity.updated_time = datetime.now()
             wsentity.total_count += count
             wsentity.save()
-            logger.info('{count} 항목을 추가하였습니다(스킵: {scount}건)'.format(count=count, scount=scount))
-            ret = {'ret':True, 'data':'{count} 항목을 추가하였습니다(스킵: {scount}건)'.format(count=count, scount=scount)}
+            logger.info('{count} 항목을 추가하였습니다(갱신: {ucount}, 스킵: {scount}건)'.format(count=count, ucount=ucount, scount=scount))
+            ret = {'ret':True, 'data':'{count} 항목을 추가하였습니다(갱신: {ucount}, 스킵: {scount}건)'.format(count=count, ucount=ucount, scount=scount)}
             return ret
 
         except Exception as e:
@@ -345,6 +377,8 @@ class LogicGSheet(object):
             data = data.split('\n')
             entity.obj_num = int(data[0].split(':')[1].strip())
             entity.str_size = data[1].split(':')[1].split('(')[0].strip()
+            entity.byte_size = LogicGSheet.get_byte_size(entity.str_size)
+            entity.updated_time = datetime.now()
             logger.debug('getsize: folder_id:%s obj_num: %d, size: %s', entity.folder_id, entity.obj_num, entity.str_size)
             entity.save()
             info_str = '<br>파일수: {obj_num}<br>사이즈: {str_size}'.format(obj_num=entity.obj_num, str_size=entity.str_size)
@@ -380,15 +414,32 @@ class LogicGSheet(object):
             return None
 
     @staticmethod
-    def get_int_size(str_size):
+    def get_byte_size(str_size):
         try:
-            measer = {u'Bytes':1, u'KBytes':1000, u'MBytes':1000000, u'GBytes':1000000000, u'TBytes':1000000000000}
+            str_size = str_size.replace(',','')
+            if str_size.find('Bytes') == -1:
+                return long(str_size)
+            measer = {u'Bytes':1.0, u'KBytes':1000.0, u'kBytes':1000.0, u'MBytes':1000.0**2, u'GBytes':1000.0**3, u'TBytes':1000.0**4}
             num, unit = str_size.split(u' ')
             size = float(num) * measer[unit]
-            return int(size)
+            return long(size)
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
+            return 0
+
+    @staticmethod
+    def get_str_size(byte_size):
+        try:
+            measer = {u'Bytes':1.0, u'KBytes':1000.0, u'kBytes':1000.0, u'MBytes':1000.0**2, u'GBytes':1000.0**3, u'TBytes':1000.0**4}
+            for k,v in sorted(measer.items(), key = lambda item: item[1], reverse=True):
+                if byte_size >= v:
+                   return str(round(byte_size / v, 2)) + ' ' + k 
+            return str(byte_size)
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+            return '-'
 
     @staticmethod
     def scheduled_copy(sheet_id):
@@ -561,6 +612,27 @@ class LogicGSheet(object):
                 c1 = db.session.query(ListModelItem).filter(and_(ListModelItem.obj_num == 0, ListModelItem.str_size == '0 Bytes')).delete()
                 db.session.commit()
                 data = '{c1}개의 불량 아이템을 삭제하였습니다.'.format(c1=c1)
+            ret = {'ret':True, 'data':data}
+            return ret
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+            return {'ret':False, 'data':''}
+
+
+    @staticmethod
+    def size_migration():
+        try:
+            from sqlalchemy import and_
+            count = 0
+            entity_list = db.session.query(ListModelItem).filter(and_(ListModelItem.byte_size == 0, ListModelItem.str_size != '-')).all()
+            for e in entity_list:
+                e.byte_size = LogicGSheet.get_byte_size(e.str_size)
+                e.save()
+                #logger.debug('%s:%s -> %d', e.title, e.str_size, e.byte_size)
+                count += 1
+
+            data = '{count}개 아이템의 사이즈를 변환하였습니다.'.format(count=count)
             ret = {'ret':True, 'data':data}
             return ret
         except Exception as e:

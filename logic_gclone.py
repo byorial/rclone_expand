@@ -402,6 +402,7 @@ service_account_file_path = {accounts_dir}/
                     match = re.compile(LogicGclone.fclone_trans_regexes[2]).search(line)
                     if match:
                         ts.error = match.group('error')
+                        logger.error('Errors: %s', ts.error)
                         continue
                     match = re.compile(LogicGclone.fclone_trans_regexes[4]).search(line)
                     if match:

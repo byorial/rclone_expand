@@ -8,8 +8,12 @@
         <span class="col-md-3">
           <input id="sheet_id" name="sheet_id" class="form-control form-control-sm w-50" type="text" placeholder="all" aria-label="시트ID">
           <select id="order" name="order" class="form-control form-control-sm">
-            <option value="desc">최근순</option>
-            <option value="asc">오래된순</option>
+            <option value="desc">등록역순</option>
+            <option value="asc">등록순</option>
+            <option value="up_desc">갱신역순</option>
+            <option value="up_asc">갱신순</option>
+            <option value="size_desc">크기역순</option>
+            <option value="size_asc">크기순</option>
 	  </select>
         </span>
 	<span class="col-md-1">
@@ -38,7 +42,7 @@
 <div>
   {{ macros.m_hr_head_top() }}
   {{ macros.m_row_start('0') }}
-  {{ macros.m_col(2, macros.m_strong('ID/생성시각')) }}
+  {{ macros.m_col(2, macros.m_strong('ID/생성/갱신시각')) }}
   {{ macros.m_col(4, macros.m_strong('제목/매핑제목')) }}
   {{ macros.m_col(2, macros.m_strong('폴더ID')) }}
   {{ macros.m_col(2, macros.m_strong('정보')) }}
@@ -116,6 +120,7 @@ function make_list(data) {
   for (i in data) {
     str += m_row_start();
     tmp = data[i].id + '<br>' + data[i].created_time;
+    tmp += '<br>' + data[i].updated_time;
     str += m_col(2, tmp);
     tmp = data[i].title + '<br>' + data[i].title2;
     str += m_col(4, tmp);

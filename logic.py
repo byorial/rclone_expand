@@ -37,8 +37,12 @@ class Logic(object):
         'use_user_setting': 'True',
         'category_rules': u'영화/국내\n드라마/국내',
         'keyword_rules': u'',
+        'except_keyword_rules': u'',
         'except_category_rules': u'',
         'user_copy_dest_rules': u'',
+        'copy_delay_use':'False',
+        'copy_delay':'30',
+        'copy_count_limit':'1'
     }
 
     @staticmethod
@@ -120,7 +124,45 @@ class Logic(object):
     @staticmethod
     def migration():
         LogicGSheet.ws_ir_init()
-        pass
+        # TEMP CODE
+        try:
+            # for temporary: ListModelItem Table alter
+            import sqlite3
+            db_path = os.path.join(path_data, 'db', '%s.db' % package_name)
+            table_name = '%s_listitem' % package_name
+
+            if platform.system() is 'Linux':
+                # connect to read only for Linux
+                fd = os.open(db_path, os.O_RDWR)
+                conn = sqlite3.connect('/dev/fd/%d' % fd)
+                os.close(fd)
+            else:
+                conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            q = 'PRAGMA table_info("{table_name}")'.format(table_name=table_name)
+            alter_byte_size = True
+            alter_updated_time = True
+            for row in cur.execute(q).fetchall():
+                if row[1] == 'byte_size': alter_byte_size = False
+                if row[1] == 'updated_time': alter_updated_time = False
+
+            if alter_byte_size is False and alter_updated_time is False:
+                conn.close()
+                return
+
+            if alter_byte_size:
+                query = 'ALTER TABLE {table_name} ADD COLUMN byte_size INTEGER default 0'.format(table_name=table_name)
+                cur.execute(query)
+                logger.info('LiteModelItem Alterred(column: byte_size)')
+            if alter_updated_time:
+                query = 'ALTER TABLE {table_name} ADD COLUMN updated_time DATETIME default NULL'.format(table_name=table_name)
+                cur.execute(query)
+                logger.info('LiteModelItem Alterred(column: updated_time)')
+            conn.commit()
+            conn.close()
+        except Exception as e: 
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
 
     ##################################################################################
 

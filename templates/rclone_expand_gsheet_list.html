@@ -319,11 +319,11 @@ $("body").on('click', '#load_item_btn', function(e){
     data: {id:id},
     dataType: "json",
     success: function (data) {
-      if (data == '') {
-        $.notify('<strong>검색에 실패하셨습니다.</strong>', {type: 'warning'});
-        return
+      if (data.ret) {
+        $.notify('<strong>' + data.data + '</strong>', {type: 'success'});
+      	setTimeout(function(){location.reload();}, 2000);
       } else {
-	location.reload();
+        $.notify('<strong>' + data.data + '</strong>', {type: 'warning'});
       }
     }
   });

@@ -217,6 +217,8 @@ service_account_file_path = {accounts_dir}/
         try:
             data = {'type':'success', 'msg' : u'Target:%s 작업을 시작합니다.' % target}
             socketio.emit("notify", data, namespace='/framework', broadcast=True)
+
+
             command = [
                 ModelSetting.get('gclone_path'),
                 '--config', ModelSetting.get('gclone_config_path'),

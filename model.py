@@ -336,6 +336,7 @@ class ListModelItem(db.Model):
     str_size = db.Column(db.String)
     copied_time = db.Column(db.DateTime)
     byte_size = db.Column(db.Integer)
+    excluded = db.Column(db.Integer)
 
     updated_time = db.Column(db.DateTime)
 
@@ -352,6 +353,7 @@ class ListModelItem(db.Model):
         self.str_size = info['str_size']
         self.byte_size = info['byte_size']
         self.updated_time = datetime.now()
+        self.excluded = 0
 
     def __repr__(self):
         return repr(self.as_dict())
@@ -459,6 +461,8 @@ class ListModelItem(db.Model):
     def get_schedule_target_items(sheet_id):
         try:
             query = db.session.query(ListModelItem).filter_by(sheet_id=sheet_id)
+            # 섹제된 항목 제외
+            query = query.filter(ListModelItem.excluded == 0)
 
             copy_count_limit = ModelSetting.get_int('copy_count_limit')
             if copy_count_limit != 0:
@@ -527,6 +531,9 @@ class ListModelItem(db.Model):
 
         if copied == 'true': query = query.filter(ListModelItem.copy_count > 0)
         elif copied == 'false': query = query.filter(ListModelItem.copy_count == 0)
+
+        if copied == 'excluded': query = query.filter(ListModelItem.excluded == 1)
+        else: query = query.filter(ListModelItem.excluded == 0)
 	
         if search != '':
             if option == 'folder_id':

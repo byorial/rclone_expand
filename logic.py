@@ -42,7 +42,8 @@ class Logic(object):
         'user_copy_dest_rules': u'',
         'copy_delay_use':'False',
         'copy_delay':'30',
-        'copy_count_limit':'1'
+        'copy_count_limit':'1',
+        'copy_mode':'0',
     }
 
     @staticmethod
@@ -142,11 +143,13 @@ class Logic(object):
             q = 'PRAGMA table_info("{table_name}")'.format(table_name=table_name)
             alter_byte_size = True
             alter_updated_time = True
+            alter_excluded = True
             for row in cur.execute(q).fetchall():
                 if row[1] == 'byte_size': alter_byte_size = False
                 if row[1] == 'updated_time': alter_updated_time = False
+                if row[1] == 'excluded': alter_excluded = False
 
-            if alter_byte_size is False and alter_updated_time is False:
+            if alter_byte_size is False and alter_updated_time is False and alter_excluded is False:
                 conn.close()
                 return
 
@@ -158,6 +161,10 @@ class Logic(object):
                 query = 'ALTER TABLE {table_name} ADD COLUMN updated_time DATETIME default NULL'.format(table_name=table_name)
                 cur.execute(query)
                 logger.info('LiteModelItem Alterred(column: updated_time)')
+            if alter_excluded:
+                query = 'ALTER TABLE {table_name} ADD COLUMN excluded INTEGER default 0'.format(table_name=table_name)
+                cur.execute(query)
+                logger.info('LiteModelItem Alterred(column: excluded)')
             conn.commit()
             conn.close()
         except Exception as e: 

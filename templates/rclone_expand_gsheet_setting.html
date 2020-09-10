@@ -25,8 +25,15 @@
     {{ macros.setting_checkbox('copy_delay_use', '복사지연시간사용', value=arg['copy_delay_use'], desc=['복사 지연시간 사용여부', 'On: 사용, Off: 사용안함']) }}
     {{ macros.setting_input_int('copy_delay', '복사지연시간', value=arg['copy_delay'], min='0', placeholder='0', desc='minute 단위, 갱신시간 기준, 지연시간동안 갱신시각에 변경사항이 없는 경우 복사시도') }}
     {{ macros.setting_input_int('copy_count_limit', '복사횟수제한', value=arg['copy_count_limit'], min='1', placeholder='1', desc=['스케쥴링에 의한 복사시도 횟수, 0 인 경우 스케쥴링때마다 복사 시도', '2이상 설정하는 경우 "--ignore-existing" 옵션설정']) }}
-    {{ macros.setting_input_textarea('category_rules', '자동다운조건-분류', desc=['분류명, 하위category *지원, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
+    {{ macros.setting_radio('copy_mode', '다운로드 모드', ['Nothing', '화이트리스트', '블랙리스트'], value=arg['copy_mode']) }}
+    <div id="whitelist_div" class="collapse">
+    {{ macros.setting_input_textarea('category_rules', '자동다운조건-분류', desc=['분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
+    <!-- {{ macros.setting_input_textarea('keyword_rules', '자동다운조건-키워드', desc=['파일명기준 키워드, 비어있는 경우 검사하지 않음', '설정시 속도저하 있음, 여러조건 입력시 구분자는 |'], value=arg['keyword_rules'], row='1') }} //-->
+    </div> 
+    <div id="blacklist_div" class="collapse">
     {{ macros.setting_input_textarea('except_category_rules', '자동다운-제외분류', desc=['자동다운로드시 제외할 분류명','분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['except_category_rules'], row='3') }}
+    <!--{{ macros.setting_input_textarea('except_keyword_rules', '자동다운조건-제외키워드', desc=['파일명기준 키워드, 비어있는 경우 검사하지 않음', '설정시 속도저하 있음, 여러조건 입력시 구분자는 |'], value=arg['except_keyword_rules'], row='1') }} //-->
+    </div>
    {{ macros.m_tab_content_end() }}
    {{ macros.m_tab_content_start('action', false) }}
       {{ macros.setting_button([['all_reset_db_btn','전체삭제']], left='전체삭제', desc='등록된 모든 워크시트와 아이템목록을 삭제합니다.') }}
@@ -43,9 +50,29 @@
 <script type="text/javascript">
 var package_name = "{{arg['package_name'] }}";
 var sub = "{{arg['sub'] }}";
+var copy_mode = "{{arg['copy_mode']}}";
 
 $(document).ready(function(){
+  set_copy_mode(copy_mode);
 });
+
+$('input[type=radio][name=copy_mode]').change(function() {
+  set_copy_mode(this.value);
+});
+
+function set_copy_mode(type) {
+  $('input[name=copy_mode]')[parseInt(type)].checked = true;
+  if ( type == '1') {
+    $('#whitelist_div').collapse('show');
+    $('#blacklist_div').collapse('hide');
+  } else if ( type == '2') {
+    $('#whitelist_div').collapse('hide');
+    $('#blacklist_div').collapse('show');
+  } else {
+    $('#whitelist_div').collapse('hide');
+    $('#blacklist_div').collapse('hide');
+  }
+}
 
 $("body").on('click', '#all_reset_db_btn', function(e){
   e.preventDefault();
@@ -183,16 +210,17 @@ function no_item_reset_db() {
   });
 }
 
+
 $("body").on('click', '#byte_size_migration', function(e){
   e.preventDefault();
   document.getElementById("confirm_title").innerHTML = "삭제 확인";
   document.getElementById("confirm_body").innerHTML = "문자열사이즈를 변환하시겠습니까?(1회만실행하면됨)";
-  $('#confirm_button').attr('onclick', "copied_item_reset_db();");
+  $('#confirm_button').attr('onclick', "byte_size_migration();");
   $("#confirm_modal").modal();
   return;
 });
 
-function copied_item_reset_db() {
+function byte_size_migration() {
   type = 'byte_size_migration'
   $.ajax({
     url: '/' + package_name + '/ajax/'+sub+'/size_migration',

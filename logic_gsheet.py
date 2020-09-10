@@ -452,7 +452,36 @@ class LogicGSheet(object):
             succeed = 0
             failed = 0
 
+            copy_mode = ModelSetting.get_int('copy_mode')
+            if copy_mode == 0: return
+
+            # keyword rule 적용: 미사용-너무느림
+            #rules = ModelSetting.get_list('keyword_rules', '|') if copy_mode == 1 else ModelSetting.get_list('except_keyword_rules', '|')
+
             for entity in ListModelItem.get_schedule_target_items(sheet_id):
+                # keyword rule 적용: 미사용-너무느림
+                """ 
+                from gd_share_client.model import ModelSetting as gscModelSetting
+                remote_path = 'gc:{%s}' % entity.folder_id
+                ret = RcloneTool.lsjson(gscModelSetting.get('rclone_path'), gscModelSetting.get('rclone_config_path'), remote_path)
+                if len(ret) == 0: continue
+
+                for f in ret:
+                    mtype = f['MimeType']
+                    if not mtype.startswith('video/'):
+                        continue
+
+                    fname = f['Name']
+                    # copy_mode: 1-whitelist, 2-blacklist
+                    for rule in rules:
+                        copy_flag = False if copy_mode == 1 else True
+                        if fname.find(rule) != -1:
+                            copy_flag = not copy_flag
+                            logger.debug('keyword(%s) is matched, copy_flag(%s)', rule, copy_flag)
+                            break
+
+                if not copy_flag: continue
+                """
                 logger.info('copy target: %s, %s, %s, %s', 
                         entity.title2 if entity.title2 != u"" else entity.title,
                         entity.folder_id,
@@ -574,7 +603,10 @@ class LogicGSheet(object):
                 if entity.copy_count > 0: wsentity.copy_count -= 1
                 wsentity.save()
 
-            ListModelItem.delete(entity.id)
+            #ListModelItem.delete(entity.id)
+            entity.excluded = 1
+            entity.save()
+
             data = '아이템항목(ID:{id})을 삭제하였습니다.'.format(id=entity.id)
             ret = {'ret': True, 'data':data}
             return ret
@@ -604,14 +636,24 @@ class LogicGSheet(object):
                 db.session.commit()
                 data = '{c1}개의 아이템을 삭제하였습니다.'.format(c1=c1)
             elif reqtype  == "copied_item":
-                c1 = db.session.query(ListModelItem).filter(ListModelItem.copy_count > 0).delete()
-                db.session.commit()
-                data = '{c1}개의 복사된 아이템을 삭제하였습니다.'.format(c1=c1)
+                #c1 = db.session.query(ListModelItem).filter(ListModelItem.copy_count > 0).delete()
+                query = db.session.query(ListModelItem).filter(ListModelItem.copy_count > 0)
+                query = query.filter(ListModelItem.excluded == 0)
+                entities = query.all()
+                for e in entities:
+                    e.excluded = 1
+                    e.save()
+                #db.session.commit()
+                data = '{c1}개의 복사된 아이템을 삭제하였습니다.'.format(c1=len(entities))
             elif reqtype  == "no_item":
                 from sqlalchemy import and_
-                c1 = db.session.query(ListModelItem).filter(and_(ListModelItem.obj_num == 0, ListModelItem.str_size == '0 Bytes')).delete()
-                db.session.commit()
-                data = '{c1}개의 불량 아이템을 삭제하였습니다.'.format(c1=c1)
+                #c1 = db.session.query(ListModelItem).filter(and_(ListModelItem.obj_num == 0, ListModelItem.str_size == '0 Bytes')).delete()
+                entities = db.session.query(ListModelItem).filter(and_(ListModelItem.obj_num == 0, ListModelItem.str_size == '0 Bytes')).all()
+                for e in entities:
+                    e.excluded = 1
+                    e.save()
+                #db.session.commit()
+                data = '{c1}개의 불량 아이템을 삭제하였습니다.'.format(c1=len(entities))
             ret = {'ret':True, 'data':data}
             return ret
         except Exception as e:

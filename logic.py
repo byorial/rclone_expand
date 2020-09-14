@@ -44,6 +44,7 @@ class Logic(object):
         'copy_delay':'30',
         'copy_count_limit':'1',
         'copy_mode':'0',
+        'plex_condition':'0',   # 미사용
     }
 
     @staticmethod
@@ -125,6 +126,7 @@ class Logic(object):
     @staticmethod
     def migration():
         LogicGSheet.ws_ir_init()
+        LogicGSheet.google_api_auth()
         # TEMP CODE
         try:
             # for temporary: ListModelItem Table alter
@@ -144,12 +146,14 @@ class Logic(object):
             alter_byte_size = True
             alter_updated_time = True
             alter_excluded = True
+            alter_mimetype = True
             for row in cur.execute(q).fetchall():
                 if row[1] == 'byte_size': alter_byte_size = False
                 if row[1] == 'updated_time': alter_updated_time = False
                 if row[1] == 'excluded': alter_excluded = False
+                if row[1] == 'mimetype': alter_mimetype = False
 
-            if alter_byte_size is False and alter_updated_time is False and alter_excluded is False:
+            if alter_byte_size is False and alter_updated_time is False and alter_excluded is False and alter_mimetype is False:
                 conn.close()
                 return
 
@@ -165,6 +169,10 @@ class Logic(object):
                 query = 'ALTER TABLE {table_name} ADD COLUMN excluded INTEGER default 0'.format(table_name=table_name)
                 cur.execute(query)
                 logger.info('LiteModelItem Alterred(column: excluded)')
+            if alter_mimetype:
+                query = 'ALTER TABLE {table_name} ADD COLUMN mimetype INTEGER default 0'.format(table_name=table_name)
+                cur.execute(query)
+                logger.info('LiteModelItem Alterred(column: mimetype)')
             conn.commit()
             conn.close()
         except Exception as e: 

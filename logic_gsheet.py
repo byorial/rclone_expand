@@ -34,19 +34,25 @@ from .logic_gclone import LogicGclone
 
 #########################################################
 class LogicGSheet(object):
+    # for GoogleDrive APIs
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    credentials = None
+    service = None
     
     @staticmethod
     @celery.task
     def scheduler_function():
         try:
             logger.info('GSheet Scheduler-function started')
+            LogicGSheet.google_api_auth()
+
             for wsentity in WSModelItem.get_scheduled_list():
                 if wsentity.is_running:
                     logger.info('SKIP: sheet_id(%d) is running', wsentity.id)
                     continue
 
                 # reload items
-                ret = LogicGSheet.load_items(wsentity.id)
+                LogicGSheet.load_items(wsentity.id)
 
                 def func():
                     ret = LogicGSheet.scheduled_copy(wsentity.id)
@@ -86,7 +92,12 @@ class LogicGSheet(object):
                 return jsonify(ret)
             elif sub == 'load_items':
                 id= req.form['id']
-                ret = LogicGSheet.load_items(id)
+                def func():
+                    time.sleep(1)
+                    LogicGSheet.load_items(id)
+                threading.Thread(target=func, args=()).start()
+
+                ret = {'ret':True, 'data':'아이템 목록 갱신을 요청했습니다.'}
                 return jsonify(ret)
             elif sub == 'get_size':
                 id= req.form['id']
@@ -99,6 +110,10 @@ class LogicGSheet(object):
             elif sub == 'delete_wsinfo':
                 logger.debug(req.form)
                 ret = LogicGSheet.delete_wsinfo(req.form)
+                return jsonify(ret)
+            elif sub == 'delete_items':
+                logger.debug(req.form)
+                ret = LogicGSheet.delete_items(req.form)
                 return jsonify(ret)
             elif sub == 'item_list':
                 ret = ListModelItem.item_list(req)
@@ -122,6 +137,23 @@ class LogicGSheet(object):
             return jsonify(ret)
     
     @staticmethod
+    def google_api_auth():
+        json_file = LogicGSheet.get_random_json()
+        try:
+            from oauth2client.service_account import ServiceAccountCredentials
+        except ImportError:
+            os.system('pip install oauth2client')
+            from oauth2client.service_account import ServiceAccountCredentials
+        try:
+            from googleapiclient.discovery import build
+        except ImportError:
+            os.system('pip install googleapiclient')
+            from googleapiclient.discovery import build
+            
+        LogicGSheet.credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, LogicGSheet.scope)
+        LogicGSheet.service = build('drive',  'v3', credentials=LogicGSheet.credentials)
+
+    @staticmethod
     def validate_sheet(ws):
         cols = ws.row_values(1)
         if u'제목' in cols and u'폴더 ID' in cols and u'분류' in cols:
@@ -139,6 +171,29 @@ class LogicGSheet(object):
         return os.path.join(accounts_dir, sa_files[0])
 
     @staticmethod
+    def get_random_json():
+        import glob, random
+        accounts_dir = ModelSetting.get('path_accounts')
+        sa_files = glob.glob(os.path.join(accounts_dir, '*.json'))
+        if len(sa_files) == 0:
+            return None
+        idx = int(random.random() * len(sa_files))
+        return os.path.join(accounts_dir, sa_files[idx])
+
+    @staticmethod
+    def get_file_info(file_id):
+        try:
+            service = LogicGSheet.service
+            finfo = service.files().get(fileId=file_id, fields="mimeType, size",
+                    supportsTeamDrives=True,
+                    supportsAllDrives=True).execute()
+            return finfo
+        except Exception as e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
+
+    @staticmethod
     def search_gsheet(doc_id):
         try:
             ret = []
@@ -147,17 +202,10 @@ class LogicGSheet(object):
             if json_file is None:
                 logger.error('failed to get json file. please check json file in (%s)', ModelSetting.get('path_accounts'))
                 return []
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
             if doc_id.startswith(u'http'): doc_url = doc_id
             else: doc_url = 'https://docs.google.com/spreadsheets/d/{doc_id}'.format(doc_id=doc_id)
             logger.debug('url(%s)', doc_url)
-
-            try:
-                from oauth2client.service_account import ServiceAccountCredentials
-            except ImportError:
-                os.system('pip install oauth2client')
-                from oauth2client.service_account import ServiceAccountCredentials
 
             try:
                 import gspread
@@ -165,8 +213,7 @@ class LogicGSheet(object):
                 os.system('pip install gspread')
                 import gspread
 
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
-            gsp = gspread.authorize(credentials)
+            gsp = gspread.authorize(LogicGSheet.credentials)
             doc = gsp.open_by_url(doc_url)
             for ws in doc.worksheets():
                 if LogicGSheet.validate_sheet(ws):
@@ -212,7 +259,9 @@ class LogicGSheet(object):
             ret = []
             wsentity = WSModelItem.get(wsmodel_id)
             if wsentity is None:
-                return None
+                data = {'type':'warning', 'msg':'유효한 워크시트가 아닙니다.'}
+                socketio.emit("notify", data, namespace='/framework', broadcate=True)
+                return
 
             # 목록이 삭제된 경우 업데이트
             if wsentity.total_count > 0:
@@ -223,17 +272,13 @@ class LogicGSheet(object):
             doc_id = wsentity.doc_id
             ws_id  = wsentity.ws_id
             logger.debug('start to get items from gsheet: %s, ws:%d', doc_id, ws_id)
+            """
             json_file = LogicGSheet.get_first_json()
             if json_file is None:
                 logger.error('failed to get json file. please check json file in (%s)', ModelSetting.get('path_accounts'))
                 return ret
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+            """
             doc_url = wsentity.doc_url
-            try:
-                from oauth2client.service_account import ServiceAccountCredentials
-            except ImportError:
-                os.system('pip install oauth2client')
-                from oauth2client.service_account import ServiceAccountCredentials
 
             try:
                 import gspread
@@ -241,46 +286,49 @@ class LogicGSheet(object):
                 os.system('pip install gspread')
                 import gspread
 
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
-            gsp = gspread.authorize(credentials)
+            gsp = gspread.authorize(LogicGSheet.credentials)
             doc = gsp.open_by_url(doc_url)
             ws = LogicGSheet.get_worksheet(doc, ws_id)
             count = 0
             scount = 0
             ucount = 0
-            for r in ws.get_all_records(head=1):
+            curr = 0
+            all_records = ws.get_all_records(head=1)
+            col_values  = ws.col_values(2)
+            total = len(all_records)
+            for r in all_records:
+                #logger.debug(r)
+                curr += 1
                 try:
                     # 폴더ID, 분류가 없는 경우 제외
                     if r[u'분류'] == '' or r[u'폴더 ID'] == '':
                         scount += 1
                         continue
+                    folder_id = r[u'폴더 ID']
+                    byte_size = LogicGSheet.get_byte_size(r[u'사이즈'])
+                    str_size  = LogicGSheet.get_str_size(byte_size)
+                    obj_num   = LogicGSheet.get_obj_num(r[u'파일수'])
+                    title     = r[u'제목']
 
-                    # 파일수, 사이즈가 없는 경우 예외처리
-                    if r[u'파일수'] == '': obj_num = 0
-                    else: obj_num = int(r[u'파일수'])
+                    entity = ListModelItem.get_entity_by_folder_id(folder_id)
+                    if entity is not None:
+                        if byte_size == entity.byte_size and obj_num == entity.obj_num:
+                            scount += 1
+                            continue
 
-                    if r[u'사이즈'] == '':
-                        str_size = '-'
-                        byte_size = 0
+                    # 파일/폴더 구분
+                    finfo = LogicGSheet.get_file_info(folder_id)
+                    if finfo is None:
+                        logger.error('failed to get info of %s', folder_id)
+                        scount += 1
+                        continue
+
+                    mimetype = 0
+                    if finfo['mimeType'] != "application/vnd.google-apps.folder":
+                        mimetype = 1
+                        logger.debug('INFO(%03d/%03d): %s: type(file), title(%s), size(%s), objnum(1)', curr, total, folder_id, title, str_size)
                     else:
-                        str_size = r[u'사이즈']
-                        try:
-                            if type(str_size) == int or type(str_size) == long:
-                                byte_size = str_size
-                                str_size = LogicGSheet.get_str_size(byte_size)
-                            elif type(str_size) == unicode:
-                                try:
-                                    byte_size = LogicGSheet.get_byte_size(str_size)
-                                    if str_size.find('Bytes') == -1:
-                                        str_size = LogicGSheet.get_str_size(byte_size)
-                                except ValueError:
-                                    str_size = '-'
-                                    byte_size = 0
-                            else:
-                                byte_size = LogicGSheet.get_byte_size(str_size)
-                        except:
-                            str_size = '-'
-                            byte_size = 0
+                        logger.debug('INFO(%03d/%03d): %s: type(folder), title(%s), size(%s), objnum(%d)', curr, total, folder_id, title, str_size, obj_num)
 
                     # 파일수0, 사이즈 0Bytes인경우 스킵
                     if obj_num == 0 and (str_size == u'0 Bytes' or byte_size == 0) and str_size != '-':
@@ -290,6 +338,7 @@ class LogicGSheet(object):
                     info = {'sheet_id':wsmodel_id, 
                             'title':r[u'제목'], 
                             'folder_id':r[u'폴더 ID'], 
+                            'mimetype':mimetype,
                             'category':r[u'분류'], 
                             'title2':r[u'제목 매핑'],
                             'obj_num':obj_num,
@@ -317,13 +366,18 @@ class LogicGSheet(object):
             wsentity.updated_time = datetime.now()
             wsentity.total_count += count
             wsentity.save()
+
+            # 결과 notify
+            data = {'type':'success', 'msg':'<strong>워크시트({ws})에 {count} 항목을 추가하였습니다</strong><br>(갱신: {ucount}, 스킵: {scount}건)'.format(ws=wsentity.doc_title, count=count, ucount=ucount, scount=scount)}
+            socketio.emit("notify", data, namespace='/framework', broadcate=True)
+
             logger.info('{count} 항목을 추가하였습니다(갱신: {ucount}, 스킵: {scount}건)'.format(count=count, ucount=ucount, scount=scount))
-            ret = {'ret':True, 'data':'{count} 항목을 추가하였습니다(갱신: {ucount}, 스킵: {scount}건)'.format(count=count, ucount=ucount, scount=scount)}
-            return ret
+            return
 
         except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
+
 
     @staticmethod
     def delete_wsinfo(req):
@@ -334,6 +388,29 @@ class LogicGSheet(object):
                 return {'ret':False, 'data':'유효한 아이템이 없습니다'}
             wsentity.delete(wsentity.id)
             return {'ret':True, 'data':'삭제하였습니다.'}
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+            return {'ret':False, 'data':'Exception'}
+
+
+    @staticmethod
+    def delete_items(req):
+        try:
+            sheet_id = int(req['sheet_id'])
+            wsentity = WSModelItem.get(sheet_id)
+            if wsentity is None:
+                return {'ret':False, 'data':'유효한 아이템이 없습니다'}
+
+            entities = ListModelItem.get_entities_by_wsid(sheet_id)
+            for entity in entities:
+                entity.delete(entity.id)
+
+            wsentity.total_count = 0
+            wsentity.save()
+
+            logger.info('워크시트(%%s)에서 %d개의 아이템을 삭제하였습니다.', wsentity.doc_title, len(entities))
+            return {'ret':True, 'data':'%d개의 아이템을 삭제하였습니다.' % len(entities)}
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
@@ -403,8 +480,8 @@ class LogicGSheet(object):
                 for rule in rule_list:
                     orig, converted = rule.split('|')
                     if orig.endswith('*'): orig = orig.replace('*','')
-                    logger.debug('orig(%s), category(%s)', orig, category)
-                    if category.startswith(orig): return converted
+                    #logger.debug('orig(%s), category(%s)', orig, category)
+                    if category.upper().startswith(orig.upper()): return converted
 
             return category
                 
@@ -416,26 +493,64 @@ class LogicGSheet(object):
     @staticmethod
     def get_byte_size(str_size):
         try:
+            if str_size == u'': return 0
+            if type(str_size) is int or type(str_size) is long:
+                return int(str_size)
+
             str_size = str_size.replace(',','')
             if str_size.find('Bytes') == -1:
-                return long(str_size)
+                return int(str_size)
             measer = {u'Bytes':1.0, u'KBytes':1000.0, u'kBytes':1000.0, u'MBytes':1000.0**2, u'GBytes':1000.0**3, u'TBytes':1000.0**4}
             num, unit = str_size.split(u' ')
             size = float(num) * measer[unit]
-            return long(size)
+            return int(size)
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+            return 0
+
+
+    @staticmethod
+    def get_str_size(byte_size):
+        try:
+            if byte_size == 0: return u'-'
+            measer = {u'Bytes':1.0, u'KBytes':1000.0, u'kBytes':1000.0, u'MBytes':1000.0**2, u'GBytes':1000.0**3, u'TBytes':1000.0**4}
+            for k,v in sorted(measer.items(), key = lambda item: item[1], reverse=True):
+                if byte_size >= v:
+                   return str(round(byte_size / v, 2)) + ' ' + k 
+            return str(byte_size)
+        except Exception as e:
+            logger.error('Exception %s', e)
+            logger.error(traceback.format_exc())
+            return u'-'
+
+
+    @staticmethod
+    def get_obj_num(str_obj_num):
+        try:
+            if str_obj_num == u'': return 0
+            return int(str_obj_num)
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
             return 0
 
     @staticmethod
-    def get_str_size(byte_size):
+    def check_plex_condition(entity):
         try:
-            measer = {u'Bytes':1.0, u'KBytes':1000.0, u'kBytes':1000.0, u'MBytes':1000.0**2, u'GBytes':1000.0**3, u'TBytes':1000.0**4}
-            for k,v in sorted(measer.items(), key = lambda item: item[1], reverse=True):
-                if byte_size >= v:
-                   return str(round(byte_size / v, 2)) + ' ' + k 
-            return str(byte_size)
+            if ModelSetting.get_int('plex_condition') == 0:
+                return False
+            
+            rx_keyword = r'(?P<keyword>.*?)\s*?(\(|\[).*'
+            rx_year = r'\((?P<year>\d{4})\)'
+            title = entity.title2 if entity.title2 != '' else entity.title
+            return False
+
+            # TODO:
+            """
+            from plex import LogicNormal as PlexLogic
+            return True
+            """
         except Exception as e:
             logger.error('Exception %s', e)
             logger.error(traceback.format_exc())
@@ -458,7 +573,22 @@ class LogicGSheet(object):
             # keyword rule 적용: 미사용-너무느림
             #rules = ModelSetting.get_list('keyword_rules', '|') if copy_mode == 1 else ModelSetting.get_list('except_keyword_rules', '|')
 
+            # TODO:Plex 연동저건에 따른 처리: 0 연동안함, 1: 있으면 skip, 2: 용량크면복사
+            #plex_condition = ModelSetting.get_int('plex_condition')
+
             for entity in ListModelItem.get_schedule_target_items(sheet_id):
+                # keyword rule 적용: 파일타입의 경우만
+                if entity.mimetype == 1:
+                    rules = ModelSetting.get_list('keyword_rules', '|') if copy_mode == 1 else ModelSetting.get_list('except_keyword_rules', '|')
+                    copy_flag = True
+                    for rule in rules:
+                        copy_flag = False if copy_mode == 1 else True
+                        if entity.title.find(rule) != -1:
+                            copy_flag = not copy_flag
+                            logger.debug('keyword(%s) is matched, copy_flag(%s)', rule, copy_flag)
+                            break
+                    if not copy_flag: continue
+
                 # keyword rule 적용: 미사용-너무느림
                 """ 
                 from gd_share_client.model import ModelSetting as gscModelSetting
@@ -482,6 +612,10 @@ class LogicGSheet(object):
 
                 if not copy_flag: continue
                 """
+                # TODO: Plex 연동 조건에 따른 복사 처리: 20.09.10 
+                #if not LogicGSeet.check_plex_condition(entity):
+                    #continue
+
                 logger.info('copy target: %s, %s, %s, %s', 
                         entity.title2 if entity.title2 != u"" else entity.title,
                         entity.folder_id,
@@ -514,18 +648,11 @@ class LogicGSheet(object):
 	    doc_id = wsentity.doc_id
             ws_id  = wsentity.ws_id
             logger.debug('start to get item from gsheet: %s, ws:%d', doc_id, ws_id)
-            json_file = LogicGSheet.get_first_json()
+            json_file = LogicGSheet.get_randon_json()
             if json_file is None:
                 logger.error('failed to get json file. please check json file in (%s)', ModelSetting.get('path_accounts'))
                 return ret
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             doc_url = wsentity.doc_url
-
-            try:
-                from oauth2client.service_account import ServiceAccountCredentials
-            except ImportError:
-                os.system('pip install oauth2client')
-                from oauth2client.service_account import ServiceAccountCredentials
 
             try:
                 import gspread
@@ -533,8 +660,7 @@ class LogicGSheet(object):
                 os.system('pip install gspread')
                 import gspread
 
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, scope)
-            gsp = gspread.authorize(credentials)
+            gsp = gspread.authorize(LogicGSheet.credentials)
             doc = gsp.open_by_url(doc_url)
             ws = LogicGSheet.get_worksheet(doc, ws_id)
             cols = ws.row_values(1)

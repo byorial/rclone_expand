@@ -45,7 +45,7 @@
   {{ macros.m_row_start('0') }}
   {{ macros.m_col(2, macros.m_strong('ID/생성/갱신시각')) }}
   {{ macros.m_col(4, macros.m_strong('제목/매핑제목')) }}
-  {{ macros.m_col(2, macros.m_strong('폴더ID')) }}
+  {{ macros.m_col(2, macros.m_strong('유형/ID')) }}
   {{ macros.m_col(2, macros.m_strong('정보')) }}
   {{ macros.m_col(2, macros.m_strong('복사')) }}
   {{ macros.m_row_end() }}
@@ -125,7 +125,13 @@ function make_list(data) {
     str += m_col(2, tmp);
     tmp = data[i].title + '<br>' + data[i].title2;
     str += m_col(4, tmp);
-    tmp = '<a href="https://drive.google.com/drive/folders/' +data[i].folder_id+ '" target="_blank">';
+    if (data[i].mimetype == 0) {
+      tmp = '폴더<br>';
+      tmp += '<a href="https://drive.google.com/drive/folders/' +data[i].folder_id+ '" target="_blank">';
+    } else {
+      tmp = '파일<br>';
+      tmp += '<a href="https://drive.google.com/file/d/' +data[i].folder_id+ '" target="_blank">';
+    }
     tmp += data[i].folder_id+ '</a>';
     str += m_col(2, tmp);
     tmp = '<strong>'+data[i].category+'</strong>';

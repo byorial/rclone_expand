@@ -79,7 +79,7 @@
     {{ macros.info_text('ws_title', '시트제목') }}
     {{ macros.info_text('ws_stat', '복사/자료건수') }}
     {{ macros.setting_checkbox('ws_in_schedule', '스케쥴링에 포함', desc=['On: 스케쥴링 동작시 문서 갱신 및 자동복사.']) }}
-    {{ macros.setting_button([['ws_save_btn', '저장'], ['ws_delete_btn', '삭제']]) }}
+    {{ macros.setting_button([['ws_save_btn', '저장'], ['ws_delete_btn', '삭제'], ['ws_delete_items_btn', '아이템삭제']]) }}
   </form>
   <hr>
 {{ macros.m_modal_end() }}
@@ -321,7 +321,6 @@ $("body").on('click', '#load_item_btn', function(e){
     success: function (data) {
       if (data.ret) {
         $.notify('<strong>' + data.data + '</strong>', {type: 'success'});
-      	setTimeout(function(){location.reload();}, 2000);
       } else {
         $.notify('<strong>' + data.data + '</strong>', {type: 'warning'});
       }
@@ -371,6 +370,29 @@ $('#ws_detail_modal').on('click', '#ws_delete_btn', function (e) {
         $.notify('<strong>삭제하였습니다.</strong>', {type: 'success'});
       } else {
         $.notify('<strong>삭제실패</strong>', {type: 'warning'});
+      }
+      $("#ws_detail_modal").modal('hide');
+      request_search(current_page);
+    }
+  });
+})
+
+
+
+$('#ws_detail_modal').on('click', '#ws_delete_items_btn', function (e) {
+  e.preventDefault();
+  var formData = get_formdata('#ws_detail');
+  $.ajax({
+    url: '/' + package_name + '/ajax/'+sub+'/delete_items',
+    type: "POST", 
+    cache: false,
+    data: formData,
+    dataType: "json",
+    success: function (data) {
+      if (data.ret) {
+        $.notify('<strong>' + data.data + '</strong>', {type: 'success'});
+      } else {
+        $.notify('<strong>' + data.data + '</strong>', {type: 'warning'});
       }
       $("#ws_detail_modal").modal('hide');
       request_search(current_page);

@@ -298,7 +298,7 @@ class WSModelItem(db.Model):
     @staticmethod
     def delete(id):
         try:
-            logger.debug( "delete")
+            #logger.debug( "delete")
             db.session.query(WSModelItem).filter_by(id=id).delete()
             db.session.commit()
 
@@ -337,6 +337,7 @@ class ListModelItem(db.Model):
     copied_time = db.Column(db.DateTime)
     byte_size = db.Column(db.Integer)
     excluded = db.Column(db.Integer)
+    mimetype = db.Column(db.Integer)    # 0: folder, 1: file
 
     updated_time = db.Column(db.DateTime)
 
@@ -354,6 +355,7 @@ class ListModelItem(db.Model):
         self.byte_size = info['byte_size']
         self.updated_time = datetime.now()
         self.excluded = 0
+        self.mimetype = info['mimetype']
 
     def __repr__(self):
         return repr(self.as_dict())
@@ -387,6 +389,7 @@ class ListModelItem(db.Model):
             entry.category = unicode(d['category'])
             entry.str_size = unicode(d['str_size'])
             entry.byte_size = d['str_size']
+            entry.mimetype = d['mime_type']
 
             db.session.add(entity)
             db.session.commit()
@@ -446,6 +449,7 @@ class ListModelItem(db.Model):
             logger.error(traceback.format_exc())
             return False
 
+
     @staticmethod
     def get_entity_by_folder_id(folder_id):
         try:
@@ -458,8 +462,23 @@ class ListModelItem(db.Model):
             return None
 
     @staticmethod
+    def get_entities_by_wsid(sheet_id):
+        try:
+            #logger.debug('folder_id:%s', folder_id)
+            entities = db.session.query(ListModelItem).filter_by(sheet_id=sheet_id).all()
+            return entities
+        except Exception, e:
+            logger.error('Exception:%s', e)
+            logger.error(traceback.format_exc())
+            return None
+
+    @staticmethod
     def get_schedule_target_items(sheet_id):
         try:
+            copy_mode = ModelSetting.get_int('copy_mode')
+            if copy_mode == 0:
+                logger.info('Not Copy! copy_mode is None')
+                return []
             query = db.session.query(ListModelItem).filter_by(sheet_id=sheet_id)
             # 섹제된 항목 제외
             query = query.filter(ListModelItem.excluded == 0)
@@ -474,18 +493,35 @@ class ListModelItem(db.Model):
                     target_time = datetime.now() - timedelta(minutes=copy_delay)
                     query = query.filter(ListModelItem.updated_time < target_time)
 
+            # 분류 룰 적용: whitelist/blaclist 분류/* 지원
             categories = ModelSetting.get_list('category_rules', '\n')
-            if len(categories) > 0:
-                query = query.filter(ListModelItem.category.in_(categories))
             xcategories = ModelSetting.get_list('except_category_rules', '\n')
+            bxlist = []
+            if len(categories) > 0:
+                conditions = []
+                for category in categories:
+                    if category.endswith(u'/*'): category = category.replace(u'/*', u'/%')
+                    conditions.append(ListModelItem.category.like(category))
+                logger.debug(conditions)
+                if copy_mode == 1:  # whitelist mode
+                    query = query.filter(or_(*conditions))
+                else:               # for blacklist mode
+                    tmpquery = query
+                    tmpquery = tmpquery.filter(or_(*conditions))
+                    bxlist = tmpquery.all()
+
             if len(xcategories) > 0:
                 query = query.filter(not_(ListModelItem.category.in_(xcategories)))
-            logger.info('get_schedule_target_items: count(%d)', query.count())
-            return query.all()
+
+            logger.debug('333:%d' % query.count())
+
+            ret = query.all() + bxlist
+            logger.info('get_schedule_target_items: count(%d)', len(ret))
+            return ret
         except Exception, e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
-            return None
+            return []
 
     @staticmethod
     def item_list(req):
@@ -575,7 +611,7 @@ class ListModelItem(db.Model):
     @staticmethod
     def delete(id):
         try:
-            logger.debug( "delete")
+            #logger.debug( "delete")
             db.session.query(ListModelItem).filter_by(id=id).delete()
             db.session.commit()
 

@@ -25,22 +25,25 @@
     {{ macros.setting_checkbox('copy_delay_use', '복사지연시간사용', value=arg['copy_delay_use'], desc=['복사 지연시간 사용여부', 'On: 사용, Off: 사용안함']) }}
     {{ macros.setting_input_int('copy_delay', '복사지연시간', value=arg['copy_delay'], min='0', placeholder='0', desc='minute 단위, 갱신시간 기준, 지연시간동안 갱신시각에 변경사항이 없는 경우 복사시도') }}
     {{ macros.setting_input_int('copy_count_limit', '복사횟수제한', value=arg['copy_count_limit'], min='1', placeholder='1', desc=['스케쥴링에 의한 복사시도 횟수, 0 인 경우 스케쥴링때마다 복사 시도', '2이상 설정하는 경우 "--ignore-existing" 옵션설정']) }}
-    {{ macros.setting_radio('copy_mode', '다운로드 모드', ['Nothing', '화이트리스트', '블랙리스트'], value=arg['copy_mode']) }}
+    <!--{{ macros.setting_radio('plex_condition', 'Plex연동모드', ['연동안함', '연동(없는경우만복사)', '연동(더큰용량의경우복사)'], desc=['Plex정보가 설정되어있어야 함.'], value=arg['plex_condition']) }} //-->
+    {{ macros.setting_radio('copy_mode', '복사모드', ['Nothing', '포함우선', '제외우선'], value=arg['copy_mode']) }}
     <div id="whitelist_div" class="collapse">
-    {{ macros.setting_input_textarea('category_rules', '자동다운조건-분류', desc=['분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
-    <!-- {{ macros.setting_input_textarea('keyword_rules', '자동다운조건-키워드', desc=['파일명기준 키워드, 비어있는 경우 검사하지 않음', '설정시 속도저하 있음, 여러조건 입력시 구분자는 |'], value=arg['keyword_rules'], row='1') }} //-->
+    {{ macros.setting_input_textarea('category_rules', '복사조건-포함분류', desc=['분류명, 비어있는 경우 검사하지 않음', '하위분류에 *지원, 예) 영화/*', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
+    {{ macros.setting_input_textarea('except_category_rules', '복사조건-제외분류', desc=['자동다운로드시 제외할 분류명','하위분류에 * 지원','분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['except_category_rules'], row='3') }}
+    {{ macros.setting_input_textarea('keyword_rules', '복사조건-포함키워드', desc=['파일명기준 키워드, 비어있는 경우 검사하지 않음', '파일유형의 아이템에만 적용됨, 여러조건 입력시 구분자는 |'], value=arg['keyword_rules'], row='1') }}
     </div> 
     <div id="blacklist_div" class="collapse">
-    {{ macros.setting_input_textarea('except_category_rules', '자동다운-제외분류', desc=['자동다운로드시 제외할 분류명','분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['except_category_rules'], row='3') }}
-    <!--{{ macros.setting_input_textarea('except_keyword_rules', '자동다운조건-제외키워드', desc=['파일명기준 키워드, 비어있는 경우 검사하지 않음', '설정시 속도저하 있음, 여러조건 입력시 구분자는 |'], value=arg['except_keyword_rules'], row='1') }} //-->
+    {{ macros.setting_input_textarea('except_category_rules', '복사조건-제외분류', desc=['자동다운로드시 제외할 분류명','분류명, 비어있는 경우 검사하지 않음', '여러조건 입력시 구분자는 Enter'], value=arg['except_category_rules'], row='3') }}
+    {{ macros.setting_input_textarea('category_rules', '복사조건-포함분류', desc=['분류명, 비어있는 경우 검사하지 않음', '하위분류에 *지원, 예) 영화/*', '여러조건 입력시 구분자는 Enter'], value=arg['category_rules'], row='3') }}
+    {{ macros.setting_input_textarea('except_keyword_rules', '복사조건-제외키워드', desc=['파일명기준 키워드, 비어있는 경우 검사하지 않음', '파일유형의 아이템에만 적용됨, 여러조건 입력시 구분자는 |'], value=arg['except_keyword_rules'], row='1') }}
     </div>
    {{ macros.m_tab_content_end() }}
    {{ macros.m_tab_content_start('action', false) }}
       {{ macros.setting_button([['all_reset_db_btn','전체삭제']], left='전체삭제', desc='등록된 모든 워크시트와 아이템목록을 삭제합니다.') }}
       {{ macros.setting_button([['all_ws_reset_db_btn','워크시트삭제']], desc='등록된 모든 워크시트를 삭제합니다.', left='시트전체삭제') }}
       {{ macros.setting_button([['all_item_reset_db_btn','모든아이템삭제']], desc='아이템 목록을 삭제합니다.', left='아이템 목록 삭제') }}
-      {{ macros.setting_button([['copied_item_reset_db_btn','복사된아이템삭제']], desc='이미 복사한 아이템 목록을 삭제합니다.', left='복사된 아이템 삭제' ) }}
-      {{ macros.setting_button([['no_item_reset_db_btn','불량아이템삭제']], desc='파일건수 0개, 사이즈 0Bytes인 아이템을 삭제합니다.', left='정보불량아이템삭제' ) }}
+      {{ macros.setting_button([['copied_item_reset_db_btn','복사된아이템삭제']], desc='이미 복사한 아이템 목록을 삭제합니다.(상태만 변경)', left='복사된 아이템 삭제' ) }}
+      {{ macros.setting_button([['no_item_reset_db_btn','불량아이템삭제']], desc='파일건수 0개, 사이즈 0Bytes인 아이템을 삭제합니다.(상태만 변경)', left='정보불량아이템삭제' ) }}
       {{ macros.setting_button([['byte_size_migration','Byte사이즈처리']], desc='임시, 문자열사이즈를 변환하여 byte단위사이즈로 DB에 기록', left='사이즈 일괄 처리' ) }}
    {{ macros.m_tab_content_end() }}
   </div><!--tab-content-->

@@ -688,7 +688,7 @@ class LogicGSheet(object):
 
             from gd_share_client.logic_user import LogicUser
             #logger.debug(category)
-            my_remote = LogicUser.get_my_copy_path('gsheet', category)
+            my_remote = LogicUser.instance.get_my_copy_path('gsheet', category)
             logger.debug('my_remote(%s)', my_remote)
 
             if ModelSetting.get_bool('use_user_setting'):

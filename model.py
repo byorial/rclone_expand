@@ -198,7 +198,7 @@ class WSModelItem(db.Model):
                 entity.save()
                 return entity
             return None
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -216,7 +216,7 @@ class WSModelItem(db.Model):
                 entity = query.with_for_update().first()
                 return entity
             return None
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return None
@@ -228,7 +228,7 @@ class WSModelItem(db.Model):
             query = db.session.query(WSModelItem).filter_by(in_schedule = True)
             logger.debug('count: %d', query.count())
             return query.all()
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return None
@@ -255,7 +255,7 @@ class WSModelItem(db.Model):
             ret['list'] = [item.as_dict() for item in lists]
             ret['paging'] = Util.get_paging_info(count, page, page_size)
             return ret
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -291,7 +291,7 @@ class WSModelItem(db.Model):
         try:
             entity = db.session.query(WSModelItem).filter_by(id=id).with_for_update().first()
             return entity
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -302,7 +302,7 @@ class WSModelItem(db.Model):
             db.session.query(WSModelItem).filter_by(id=id).delete()
             db.session.commit()
 
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -313,7 +313,7 @@ class WSModelItem(db.Model):
                 e.is_running = False
             db.session.commit()
 
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -407,7 +407,7 @@ class ListModelItem(db.Model):
                 entity.save()
                 return entity
             return None
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -444,7 +444,7 @@ class ListModelItem(db.Model):
                 return True
             return False
 
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return False
@@ -456,7 +456,7 @@ class ListModelItem(db.Model):
             #logger.debug('folder_id:%s', folder_id)
             entity = db.session.query(ListModelItem).filter_by(folder_id=folder_id).with_for_update().first()
             return entity
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return None
@@ -467,7 +467,7 @@ class ListModelItem(db.Model):
             #logger.debug('folder_id:%s', folder_id)
             entities = db.session.query(ListModelItem).filter_by(sheet_id=sheet_id).all()
             return entities
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return None
@@ -518,7 +518,7 @@ class ListModelItem(db.Model):
             ret = query.all() + bxlist
             logger.info('get_schedule_target_items: count(%d)', len(ret))
             return ret
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return []
@@ -550,7 +550,7 @@ class ListModelItem(db.Model):
             ret['list'] = [item.as_dict() for item in lists]
             ret['paging'] = Util.get_paging_info(count, page, page_size)
             return ret
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -561,7 +561,7 @@ class ListModelItem(db.Model):
             try:
                 sheet_id = int(sheet_id)
                 query = query.filter(ListModelItem.sheet_id==sheet_id)
-            except ValueError, e:
+            except ValueError as e:
                 logger.error('Invalid sheet_id({sheet_id})'.format(sheet_id=sheet_id))
                 return None
 
@@ -603,7 +603,7 @@ class ListModelItem(db.Model):
         try:
             entity = db.session.query(ListModelItem).filter_by(id=id).with_for_update().first()
             return entity
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return None
@@ -615,7 +615,7 @@ class ListModelItem(db.Model):
             db.session.query(ListModelItem).filter_by(id=id).delete()
             db.session.commit()
 
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
 
@@ -624,7 +624,7 @@ class ListModelItem(db.Model):
     def get_total_count(sheet_id):
         try:
             return db.session.query(ListModelItem).filter_by(sheet_id=sheet_id).count()
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return 0
@@ -634,7 +634,7 @@ class ListModelItem(db.Model):
     def get_copy_count(sheet_id):
         try:
             return db.session.query(ListModelItem).filter(and_(ListModelItem.sheet_id == sheet_id, ListModelItem.copy_count > 0)).count()
-        except Exception, e:
+        except Exception as e:
             logger.error('Exception:%s', e)
             logger.error(traceback.format_exc())
             return 0

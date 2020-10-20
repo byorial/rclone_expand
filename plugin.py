@@ -32,20 +32,20 @@ from .logic_gsheet import LogicGSheet
 blueprint = Blueprint(package_name, package_name, url_prefix='/%s' %  package_name, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 
 menu = {
-    'main' : [package_name, 'Rclone Expand'],
+    'main' : [package_name, u'Rclone Expand'],
     'sub' : [
-        ['autorclone', 'AutoRclone'], ['gclone', 'Gclone'], ['gsheet', 'GSheet'], ['log', '로그']
+        ['autorclone', u'AutoRclone'], ['gclone', u'Gclone'], ['gsheet', u'GSheet'], ['log', u'로그']
     ],
     'category' : 'service',
     'sub2' : {
         'autorclone' : [
-            ['setting', '설정']
+            ['setting', u'설정']
         ],
         'gclone' : [
-            ['setting', '설정'], ['command', '작업'] 
+            ['setting', u'설정'], ['command', u'작업'] 
         ],
         'gsheet' : [
-            ['setting', '설정'], ['list', '시트목록'], ['item_list', '아이템목록']
+            ['setting', u'설정'], ['list', u'시트목록'], ['item_list', u'아이템목록']
         ],
     }
 

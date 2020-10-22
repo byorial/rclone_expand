@@ -13,7 +13,7 @@ from sqlalchemy.orm import backref
 
 
 # sjva 공용
-from framework import app, db, path_app_root
+from framework import app, db, path_app_root, py_unicode
 from framework.util import Util
 
 # 패키지
@@ -176,11 +176,11 @@ class WSModelItem(db.Model):
     def save_as_dict(d):
         try:
             entity = WSModelItem()
-            entity.doc_id = unicode(d['doc_id'])
-            entity.doc_title = unicode(d['doc_title'])
-            entity.ws_id = unicode(d['ws_id'])
-            entity.ws_title = unicode(d['ws_title'])
-            entity.doc_url = unicode(d['doc_url'])
+            entity.doc_id = py_unicode(d['doc_id'])
+            entity.doc_title = py_unicode(d['doc_title'])
+            entity.ws_id = py_unicode(d['ws_id'])
+            entity.ws_title = py_unicode(d['ws_title'])
+            entity.doc_url = py_unicode(d['doc_url'])
             entity.in_schedule = d['in_schedule']
 
             db.session.add(entity)
@@ -379,15 +379,15 @@ class ListModelItem(db.Model):
     def save_as_dict(d):
         try:
             entity = ListModelItem()
-            entry.sheet_id = unicode(d['sheet_id'])
-            entry.title = unicode(d['title'])
-            entry.title2 = unicode(d['title2'])
-            entry.folder_id = unicode(d['folder_id'])
-            entry.category = unicode(d['category'])
+            entry.sheet_id = py_unicode(d['sheet_id'])
+            entry.title = py_unicode(d['title'])
+            entry.title2 = py_unicode(d['title2'])
+            entry.folder_id = py_unicode(d['folder_id'])
+            entry.category = py_unicode(d['category'])
             entry.copy_count = d['copy_count']
             entry.obj_num = d['obj_num']
-            entry.category = unicode(d['category'])
-            entry.str_size = unicode(d['str_size'])
+            entry.category = py_unicode(d['category'])
+            entry.str_size = py_unicode(d['str_size'])
             entry.byte_size = d['str_size']
             entry.mimetype = d['mime_type']
 

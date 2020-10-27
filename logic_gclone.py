@@ -47,10 +47,14 @@ class LogicGclone(object):
                 return jsonify(ret)
             elif sub == 'version':
                 command = [ModelSetting.get('gclone_path'), 'version']
-                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+                if app.config['config']['is_py2']:
+                    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+                else:
+                    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+                iter_arg =  b'' if app.config['config']['is_py2'] else ''
                 ret = []
                 with process.stdout:
-                    for line in iter(process.stdout.readline, b''):
+                    for line in iter(process.stdout.readline, iter_arg):
                         ret.append(line)
                     process.wait() # wait for the subprocess to exit
                 return jsonify(ret)
@@ -232,8 +236,11 @@ service_account_file_path = {accounts_dir}/
                 command += ModelSetting.get_list('gclone_fix_option', ' ')
 
             command += ModelSetting.get_list('gclone_user_option', ' ')
-            logger.debug(command)             
-            LogicGclone.current_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+            logger.debug(command)         
+            if app.config['config']['is_py2']:    
+                LogicGclone.current_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+            else:
+                LogicGclone.current_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
             
             LogicGclone.current_data['command'] = ' '.join(command)
             LogicGclone.current_data['log'] = []
@@ -273,7 +280,8 @@ service_account_file_path = {accounts_dir}/
     def log_thread_fuction():
         with LogicGclone.current_process.stdout:
             ts = None
-            for line in iter(LogicGclone.current_process.stdout.readline, b''):
+            iter_arg =  b'' if app.config['config']['is_py2'] else ''
+            for line in iter(LogicGclone.current_process.stdout.readline, iter_arg):
                 line = line.strip()
                 try:
                     try:
@@ -357,7 +365,8 @@ service_account_file_path = {accounts_dir}/
     def fclone_log_thread_fuction():
         with LogicGclone.current_process.stdout:
             ts = None
-            for line in iter(LogicGclone.current_process.stdout.readline, b''):
+            iter_arg =  b'' if app.config['config']['is_py2'] else ''
+            for line in iter(LogicGclone.current_process.stdout.readline, iter_arg):
                 line = line.strip()
                 try:
                     try:
@@ -468,10 +477,14 @@ service_account_file_path = {accounts_dir}/
     def is_fclone():
         try:
             command = [ModelSetting.get('gclone_path'), 'version']
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+            if app.config['config']['is_py2']:
+                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+            else:
+                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
             ret = []
+            iter_arg =  b'' if app.config['config']['is_py2'] else ''
             with process.stdout:
-                for line in iter(process.stdout.readline, b''):
+                for line in iter(process.stdout.readline, iter_arg):
                     if line.find('fclone') != -1: return True
             return False
         except Exception as e:

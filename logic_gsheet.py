@@ -142,12 +142,12 @@ class LogicGSheet(object):
         try:
             from oauth2client.service_account import ServiceAccountCredentials
         except ImportError:
-            os.system('pip install oauth2client')
+            os.system("{} install oauth2client".format(app.config['config']['pip']))
             from oauth2client.service_account import ServiceAccountCredentials
         try:
             from googleapiclient.discovery import build
         except ImportError:
-            os.system('pip install googleapiclient')
+            os.system("{} install googleapiclient".format(app.config['config']['pip']))
             from googleapiclient.discovery import build
             
         LogicGSheet.credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file, LogicGSheet.scope)
@@ -210,7 +210,7 @@ class LogicGSheet(object):
             try:
                 import gspread
             except ImportError:
-                os.system('pip install gspread')
+                os.system("{} install gspread".format(app.config['config']['pip']))
                 import gspread
 
             gsp = gspread.authorize(LogicGSheet.credentials)
@@ -283,7 +283,7 @@ class LogicGSheet(object):
             try:
                 import gspread
             except ImportError:
-                os.system('pip install gspread')
+                os.system("{} install gspread".format(app.config['config']['pip']))
                 import gspread
 
             gsp = gspread.authorize(LogicGSheet.credentials)
@@ -657,7 +657,7 @@ class LogicGSheet(object):
             try:
                 import gspread
             except ImportError:
-                os.system('pip install gspread')
+                os.system("{} install gspread".format(app.config['config']['pip']))
                 import gspread
 
             gsp = gspread.authorize(LogicGSheet.credentials)

@@ -75,7 +75,9 @@ class Logic(object):
             try:
                 from google_auth_oauthlib.flow import InstalledAppFlow
             except:
-                os.system('pip install google_auth_oauthlib')
+                os.system("{} install google_auth_oauthlib".format(app.config['config']['pip']))
+                from google_auth_oauthlib.flow import InstalledAppFlow
+
             tmp = os.path.join(os.path.dirname(__file__), 'bin')
             if os.path.exists(tmp):
                 os.system('chmod 777 -R %s' % tmp)

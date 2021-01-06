@@ -645,7 +645,7 @@ class LogicGSheet(object):
             entity = ListModelItem.get(entity_id)
             wsentity = WSModelItem.get(entity.sheet_id)
 
-	    doc_id = wsentity.doc_id
+            doc_id = wsentity.doc_id
             ws_id  = wsentity.ws_id
             logger.debug('start to get item from gsheet: %s, ws:%d', doc_id, ws_id)
             json_file = LogicGSheet.get_randon_json()
@@ -719,8 +719,8 @@ class LogicGSheet(object):
     @staticmethod
     def delete_item(id):
         try:
-	    entity = ListModelItem.get(id)
-	    if entity is None:
+            entity = ListModelItem.get(id)
+            if entity is None:
                 return {'ret':False, 'data':'항목을 찾을 수 없습니다.'}
 
             wsentity = WSModelItem.get(entity.sheet_id)

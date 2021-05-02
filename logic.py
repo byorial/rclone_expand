@@ -80,7 +80,7 @@ class Logic(object):
 
             tmp = os.path.join(os.path.dirname(__file__), 'bin')
             if os.path.exists(tmp):
-                os.system('chmod 777 -R %s' % tmp)
+                os.system('chmod 777 -R "%s"' % tmp)
             if ModelSetting.query.filter_by(key='gsheet_auto_start').first().value == 'True':
                 Logic.scheduler_start()
         except Exception as e: 

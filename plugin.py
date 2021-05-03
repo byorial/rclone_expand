@@ -36,7 +36,7 @@ menu = {
     'sub' : [
         ['autorclone', u'AutoRclone'], ['gclone', u'Gclone'], ['gsheet', u'GSheet'], ['log', u'로그']
     ],
-    'category' : 'tool'',
+    'category' : 'tool',
     'sub2' : {
         'autorclone' : [
             ['setting', u'설정']

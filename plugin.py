@@ -36,7 +36,7 @@ menu = {
     'sub' : [
         ['autorclone', u'AutoRclone'], ['gclone', u'Gclone'], ['gsheet', u'GSheet'], ['log', u'로그']
     ],
-    'category' : 'service',
+    'category' : 'tool'',
     'sub2' : {
         'autorclone' : [
             ['setting', u'설정']
@@ -54,7 +54,7 @@ menu = {
 plugin_info = {
     'version' : '0.1.0.0',
     'name' : 'rclone_extend',
-    'category_name' : 'service',
+    'category_name' : 'tool',
     'developer' : 'soju6jan',
     'description' : 'Rclone Expand',
     'home' : 'https://github.com/soju6jan/rclone_expand',

@@ -359,6 +359,7 @@ service_account_file_path = {accounts_dir}/
                     logger.error('Exception:%s', e)
                     logger.error(traceback.format_exc())
             logger.debug('rclone log thread end')
+        logger.debug(str(ts))
         LogicGclone.trans_callback('status', ts)
 
     @staticmethod

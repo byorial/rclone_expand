@@ -162,21 +162,24 @@ class LogicGSheet(object):
 
     @staticmethod
     def get_first_json():
-        import glob
         accounts_dir = ModelSetting.get('path_accounts')
-        sa_files = glob.glob(os.path.join(accounts_dir, '*.json'))
-        if len(sa_files) == 0:
-            return None
-        first_json = os.path.join(accounts_dir, sa_files[0])
-        return os.path.join(accounts_dir, sa_files[0])
+        for (path, dir, files) in os.walk(account_dir):
+            for fname in files:
+                if os.path.splitext(fname)[-1] == '.json':
+                    return os.path.join(path, fname)
+        return None
 
     @staticmethod
     def get_random_json():
-        import glob, random
+        import random
         accounts_dir = ModelSetting.get('path_accounts')
-        sa_files = glob.glob(os.path.join(accounts_dir, '*.json'))
-        if len(sa_files) == 0:
-            return None
+        sa_files = []
+        for (path, dir, files) in os.walk(accounts_dir):
+            for fname in files:
+                if os.path.splitext(fname)[-1] == '.json':
+                    sa_files.append(fname)
+
+        if len(sa_files) == 0: return None
         idx = int(random.random() * len(sa_files))
         return os.path.join(accounts_dir, sa_files[idx])
 
@@ -588,6 +591,7 @@ class LogicGSheet(object):
                             logger.debug('keyword(%s) is matched, copy_flag(%s)', rule, copy_flag)
                             break
                     if not copy_flag: continue
+                    if entity.copy_count > 1: continue
 
                 # keyword rule 적용: 미사용-너무느림
                 """ 
@@ -698,8 +702,12 @@ class LogicGSheet(object):
                 dest_folder = entity.category + '/' + entity.title2 if entity.title2 != u'' else entity.title
                 gcstring = 'gc:{%s}|%s/%s' % (entity.folder_id, "gc:{}", dest_folder)
 
-            LogicGclone.queue_append([gcstring])
-            entity.copied_time = datetime.now()
+            tmp = ModelSetting.get('gclone_queue_list')
+            if tmp.find(gcstring) != -1:
+                return {'ret':True, 'data':'이미 큐에 존재합니다.'}
+            else:
+                LogicGclone.queue_append([gcstring])
+                entity.copied_time = datetime.now()
 
             # 처음 복사하는 경우만 시트정보에 카운트 갱신
             if entity.copy_count == 0:
@@ -707,6 +715,7 @@ class LogicGSheet(object):
                 if wsentity is not None:
                     wsentity.copy_count += 1
                     wsentity.save()
+
             entity.copy_count += 1
             entity.save()
             return {'ret':True, 'data':'큐에 추가하였습니다.'}

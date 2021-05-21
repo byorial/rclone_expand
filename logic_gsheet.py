@@ -163,7 +163,7 @@ class LogicGSheet(object):
     @staticmethod
     def get_first_json():
         accounts_dir = ModelSetting.get('path_accounts')
-        for (path, dir, files) in os.walk(account_dir):
+        for (path, dir, files) in os.walk(accounts_dir):
             for fname in files:
                 if os.path.splitext(fname)[-1] == '.json':
                     return os.path.join(path, fname)
